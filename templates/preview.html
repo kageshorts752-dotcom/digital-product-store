@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block content %}
+<h1>Look inside: {{p.title}}</h1><div class="preview"><p>{{p.preview_text}}</p>
+<p><b>Format:</b> {{p.file_format}} · <b>Size:</b> {{p.file_size}} · <b>Requires:</b> {{p.software}}</p>
+<p>This is a sample preview only. The full file is delivered after payment via a time-limited signed link, stamped with your email and transaction ID.</p></div>
+<a href="/product/{{p.slug}}">← Back to product</a>{% endblock %}

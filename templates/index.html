@@ -1,0 +1,53 @@
+{% extends "base.html" %}{% block content %}
+{% macro card(p) %}
+<div class="card">
+{% if p.image_url %}<img class="card-img" src="{{p.image_url}}" alt="{{p.title}}" loading="lazy">{% else %}<div class="card-img placeholder">No picture yet</div>{% endif %}
+{% if p.badge == 'staff_pick' %}<span class="badge staff">⭐ Staff Pick</span>{% endif %}
+{% if p.badge == 'latest' %}<span class="badge new">New</span>{% endif %}
+{% if p.badge == 'todays_choice' %}<span class="badge choice">Today's Choice</span>{% endif %}
+<h3><a href="/product/{{p.slug}}">{{p.title}}</a></h3>
+<p class="small">by <a href="/store/{{ (p.seller_name or '').lower().replace(' ', '-') }}">{{p.seller_name or 'Shirish Digital Store'}}</a>{% if p.item_count %} · {{p.item_count}}{% endif %}</p>
+<p><span class="badge">{{p.category}}</span> <span class="badge">{{p.file_format|upper}}</span></p>
+<p>{{p.description}}</p>
+<p class="price">₹{{p.price}}</p><a href="/product/{{p.slug}}">View product →</a>
+</div>
+{% endmacro %}
+<section class="hero marketplace-hero">
+<span class="tag">✔ Verified Assets · Instant Delivery · Special Offers</span>
+<h1>PDF guides &amp; video bundles, ready to download</h1>
+<p>Original eBooks, courses, reels and video bundles from independent creators — buy once, download instantly, keep forever.</p>
+<form method="get" action="/" class="searchbar">
+<input type="search" name="q" placeholder="Search PDF guides, video bundles, reels…" value="{{q or ''}}">
+<button>Search</button>
+</form>
+<div class="chips">
+<a href="/" class="chip{% if not category and not q %} active{% endif %}">All</a>
+{% for c in categories %}<a href="/?category={{c}}" class="chip{% if category == c %} active{% endif %}">{{c}}</a>{% endfor %}
+</div>
+<p class="trust">✔ Verified Assets &nbsp;·&nbsp; ⚡ Instant Delivery &nbsp;·&nbsp; 🏷️ Special Offers</p>
+</section>
+
+{% if searching %}
+<h2>{% if q %}Results for “{{q}}”{% else %}{{category}}{% endif %}</h2>
+{% if products %}<div class="grid">{% for p in products %}{{ card(p) }}{% endfor %}</div>
+{% else %}<p>No products found. <a href="/">Browse everything →</a></p>{% endif %}
+{% else %}
+<h2>🔥 Explore Top Picks</h2>
+<div class="grid">{% for p in top_picks %}{{ card(p) }}{% endfor %}</div>
+<h2>🆕 New Arrivals</h2>
+<div class="grid">{% for p in new_arrivals %}{{ card(p) }}{% endfor %}</div>
+<h2>⭐ Editor's Picks</h2>
+<div class="grid">{% for p in editors %}{{ card(p) }}{% endfor %}</div>
+<h2>🎯 Today's Choice</h2>
+<div class="grid">{% for p in todays %}{{ card(p) }}{% endfor %}</div>
+<h2>📦 Bundles</h2>{% for b in bundles %}<div class="card"><h3>{{b.title}}</h3><p>{{b.description}}</p><p class="price">₹{{b.bundle_price}}</p>
+<form method="post" action="/cart/add"><input type="hidden" name="bundle_id" value="{{b.bundle_id}}"><button>Add bundle to cart</button></form></div>{% endfor %}
+{% for cat, items in spotlights.items() %}
+<h2>Category Spotlight: {{cat}}</h2>
+<div class="grid">{% for p in items %}{{ card(p) }}{% endfor %}</div>
+{% endfor %}
+<h2>All products</h2>
+<div class="grid">{% for p in products %}{{ card(p) }}{% endfor %}</div>
+{% endif %}
+<p class="small">Affiliate demo link: <code>/ref/creator1</code> — 10% commission is logged on purchase.</p>
+{% endblock %}

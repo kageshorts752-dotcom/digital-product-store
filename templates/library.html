@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block content %}<h1>My Library</h1>
+<form method="post"><input type="email" name="email" value="{{email}}" placeholder="Your purchase email" required><button>Show my orders</button></form>
+{% for o in orders %}<div class="card"><a href="/order/{{o.order_id}}">Order {{o.order_id[:8]}}</a> — {{o.status}} — ₹{{o.total_amount}} — {{o.created_at}}</div>{% endfor %}
+{% endblock %}

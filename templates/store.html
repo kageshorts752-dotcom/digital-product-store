@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}{{seller}} — Digital Store{% endblock %}{% block content %}
+<section class="hero"><span class="tag">Seller store</span>
+<h1>{{seller}}</h1><p>{{count}} product{% if count != 1 %}s{% endif %} in this store. Instant delivery on every purchase.</p></section>
+<div class="grid">{% for p in products %}<div class="card">
+{% if p.image_url %}<img class="card-img" src="{{p.image_url}}" alt="{{p.title}}" loading="lazy">{% else %}<div class="card-img placeholder">No picture yet</div>{% endif %}
+{% if p.badge == 'staff_pick' %}<span class="badge staff">⭐ Staff Pick</span>{% endif %}
+<h3><a href="/product/{{p.slug}}">{{p.title}}</a></h3>
+<p class="small">{% if p.item_count %}{{p.item_count}} · {% endif %}{{p.category}}</p>
+<p>{{p.description}}</p>
+<p class="price">₹{{p.price}}</p><a href="/product/{{p.slug}}">View product →</a></div>{% endfor %}</div>
+<p><a href="/">← Back to all products</a></p>
+{% endblock %}

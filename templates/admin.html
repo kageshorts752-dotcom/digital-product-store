@@ -1,0 +1,52 @@
+{% extends "base.html" %}{% block content %}<section class="hero"><h1>Admin</h1><p><a href="/admin/logout">Logout</a></p></section>
+<h2>Manage products</h2>
+<table><tr><th>Product</th><th>Price</th><th>Published</th><th>Edit</th><th>Delete</th></tr>
+{% for p in products %}<tr><td><b>{{p.title}}</b><br><span class="small">{{p.slug}} · {{p.category}} · {{p.seller_name or ""}}</span></td>
+<td class="price">₹{{p.price}}</td><td>{% if p.is_published %}Yes{% else %}No{% endif %}</td>
+<td><form method="post" action="/admin/product/{{p.product_id}}/edit" class="manage-form">
+<label>Title <input name="title" value="{{p.title}}" required></label>
+<label>Price (₹) <input name="price" type="number" step="0.01" value="{{p.price}}" required></label>
+<label>Category <input name="category" value="{{p.category or ''}}"></label>
+<label>Seller / store <input name="seller_name" value="{{p.seller_name or ''}}"></label>
+<label>Badge <select name="badge"><option value="" {% if not p.badge %}selected{% endif %}>None</option><option value="top_pick" {% if p.badge == 'top_pick' %}selected{% endif %}>Top Pick</option><option value="latest" {% if p.badge == 'latest' %}selected{% endif %}>New Arrival</option><option value="staff_pick" {% if p.badge == 'staff_pick' %}selected{% endif %}>Staff Pick</option><option value="todays_choice" {% if p.badge == 'todays_choice' %}selected{% endif %}>Today's Choice</option></select></label>
+<label>Item count <input name="item_count" value="{{p.item_count or ''}}" placeholder="e.g. 500 videos / 142 pages"></label>
+<label>Format <input name="file_format" value="{{p.file_format or ''}}"></label>
+<label>Size <input name="file_size" value="{{p.file_size or ''}}"></label>
+<label>Software <input name="software" value="{{p.software or ''}}"></label>
+<label class="full">Specs <input name="specs" value="{{p.specs or ''}}"></label>
+<label class="full">Description <textarea name="description">{{p.description or ''}}</textarea></label>
+<label class="full"><input type="checkbox" name="is_published" {% if p.is_published %}checked{% endif %}> Published</label>
+<button class="full">Save changes</button></form></td>
+<td><form method="post" action="/admin/product/{{p.product_id}}/delete" class="inline" onsubmit="return confirm('Delete {{p.title}}? This cannot be undone. Past orders stay untouched.');"><button class="danger">Delete</button></form></td></tr>{% endfor %}</table>
+<h2>Product pictures</h2><p class="small">Paste an image URL (durable on the live site) or upload a picture. Uploads on the live site are temporary — they may disappear after a cold start or redeploy, while an image URL stays.</p>
+<div class="pic-grid">{% for p in products %}<div class="pic-card">
+{% if p.image_url %}<img class="thumb" style="width:100%;height:160px" src="{{p.image_url}}" alt="{{p.title}}">{% else %}<div class="thumb placeholder" style="width:100%;height:160px">No picture</div>{% endif %}
+<h3>{{p.title}}</h3><p class="small">{{p.image_url or "No picture set"}}</p>
+<form method="post" action="/admin/product/{{p.product_id}}/image" enctype="multipart/form-data">
+<label>Image URL <input name="image_url" placeholder="https://…/picture.jpg" value="{{p.image_url if p.image_url and p.image_url.startswith('http') else ''}}"></label>
+<label>Or upload a picture (png/jpg/webp/gif, max 5 MB) <input type="file" name="image_file" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
+<button>Save picture</button></form></div>{% endfor %}</div>
+<h2>Orders</h2>{% for o in orders %}<div class="card">{{o.order_id[:8]}} — {{o.buyer_email}} — {{o.status}} — ₹{{o.total_amount}} — {{o.payment_gateway}}
+<form method="post" action="/admin/order/{{o.order_id}}/confirm" style="display:inline"><button>Confirm payment (UPI)</button></form>
+<form method="post" action="/admin/order/{{o.order_id}}/refund" style="display:inline"><button>Refund + revoke</button></form></div>{% endfor %}
+<h2>Add product</h2><form method="post" action="/admin/product" enctype="multipart/form-data">
+<input name="slug" placeholder="slug" required> <input name="title" placeholder="Title" required> <input name="price" placeholder="Price" type="number" step="0.01">
+<input name="category" placeholder="Category"> <input name="file_format" placeholder="Format e.g. zip"> <input name="file_size" placeholder="Size">
+<input name="seller_name" placeholder="Seller / store name"> <input name="item_count" placeholder="Item count e.g. 500 videos">
+<select name="badge"><option value="">Badge: none</option><option value="top_pick">Top Pick</option><option value="latest">New Arrival</option><option value="staff_pick">Staff Pick</option><option value="todays_choice">Today's Choice</option></select>
+<input name="software" placeholder="Required software"> <input name="specs" placeholder="Specs">
+<textarea name="description" placeholder="Description"></textarea>
+<input name="image_url" placeholder="Picture URL (https://…)">
+<label>Or upload a picture (png/jpg/webp/gif, max 5 MB) <input type="file" name="image_file" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
+<label><input type="checkbox" name="requires_license_key"> Requires license key</label>
+<button>Add product</button></form>
+<h2>Upload new file version (notifies past buyers — logged)</h2><form method="post" action="/admin/upload-version" enctype="multipart/form-data">
+<select name="product_id">{% for p in products %}<option value="{{p.product_id}}">{{p.title}}</option>{% endfor %}</select>
+<input name="version_label" placeholder="e.g. 1.1.0" required> <input type="file" name="file" required><button>Upload version</button></form>
+<h2>Add coupon</h2><form method="post" action="/admin/coupon">
+<input name="code" placeholder="CODE" required> <input name="discount_pct" placeholder="% off"> <input name="discount_amount" placeholder="Fixed off">
+<input name="usage_limit" placeholder="Usage limit"> <input name="expires_at" placeholder="2099-01-01"><button>Add coupon</button></form>
+<h2>Coupons</h2>{% for c in coupons %}<div class="card">{{c.code}} — {{c.discount_pct}}% / ₹{{c.discount_amount}} — used {{c.used_count}}/{{c.usage_limit}}</div>{% endfor %}
+<h2>Affiliates</h2>{% for a in affiliates %}<div class="card">{{a.code}} — {{(a.commission_rate*100)|int}}% — link: /ref/{{a.code}}</div>{% endfor %}
+<h2>Update notifications (log)</h2>{% for n in notes %}<div class="card">{{n.title}} — {{n.note}} — {{n.created_at}}</div>{% else %}<p>No notifications yet.</p>{% endfor %}
+{% endblock %}

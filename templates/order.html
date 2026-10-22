@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block content %}<h1>Order {{o.order_id[:8]}}</h1>
+<p>Status: <b>{{o.status}}</b> · Gateway: {{o.payment_gateway}} · Total: ₹{{o.total_amount}} (incl. GST ₹{{o.tax_amount}})</p>
+{% if o.status!='paid' %}<div class="card"><b>Pending — UPI payment not yet confirmed.</b>
+<p>If you paid by UPI, wait for the admin to confirm receipt. Files will appear below once confirmed. <a href="/order/{{o.order_id}}/invoice">View invoice</a></p>
+{% if youpi_link %}<p>Pay here: UPI ID <code>{{upi_id}}</code> · <a href="{{youpi_link}}">Open UPI app to pay ₹{{o.total_amount}}</a> (reference: order ID)</p>
+{% if youpi_qr %}<img src="{{youpi_qr}}" alt="UPI QR" width="200">{% else %}<p class="small">QR is generated locally only if the qrcode library is installed; otherwise use the link / copyable ID above. No external QR service is used.</p>{% endif %}
+{% if o.payment_gateway=='youpi' %}<p class="small"><b>YouPI (experimental):</b> this order unlocks only after a verified YouPI webhook signature or admin manual confirmation, and must be reconciled against bank records. Not production-ready.</p>{% endif %}{% endif %}</div>
+{% else %}<h2>Your downloads (links expire in 15 minutes, max 5 downloads each)</h2>
+{% for l in links %}<div class="card">{{l.item.title}} — <a href="/download/{{l.token}}">Download (stamped copy)</a></div>{% endfor %}
+<h2>License keys</h2>{% for k in keys %}<div class="card">{{k.title}}: <code>{{k.license_key}}</code> — {{k.status}}</div>{% else %}<p>No license key required for these products.</p>{% endfor %}{% endif %}
+<p><a href="/order/{{o.order_id}}/invoice">Printable invoice →</a> · <a href="/library?email={{o.buyer_email}}">My library →</a></p>
+{% endblock %}

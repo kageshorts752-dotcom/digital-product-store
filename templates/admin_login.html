@@ -1,0 +1,3 @@
+{% extends "base.html" %}{% block content %}<section class="hero"><h1>Admin login</h1><p>Manage products, orders, coupons and versions.</p></section>
+<form method="post"><input type="email" name="email" placeholder="admin@store.local" required><br><input type="password" name="password" required><br><button>Login</button></form>
+<p class="small">Seeded demo admin: admin@store.local / admin123 — change it before production.</p>{% endblock %}
