@@ -22,6 +22,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sqlite3
 import uuid
 import zipfile
@@ -31,6 +32,8 @@ from urllib.parse import quote
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
                    request, send_file, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
+
+import guides  # noqa: E402  (100 original PDF guides, stdlib-only PDF builder)
 
 try:
     from config import (DOWNLOAD_LINK_MINUTES, DOWNLOAD_MAX_DEFAULT,
@@ -43,8 +46,50 @@ except Exception:  # config.py missing (e.g. partial copy)
     YOUPI_WEBHOOK_SECRET = os.environ.get("YOUPI_WEBHOOK_SECRET", "")
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-PRIVATE = os.path.join(BASE, "private_files")
+PRIVATE_REPO = os.path.join(BASE, "private_files")
+# Vercel's deployment filesystem is read-only, so a file that is NOT in the
+# repo cannot be created under BASE/private_files at runtime (this crashed
+# the live site before, when a new product's PDF was missing from the repo).
+# On Vercel, use a writable /tmp directory and copy the repo's private
+# files there once; locally, keep using the repo directory.
+if os.environ.get("VERCEL"):
+    PRIVATE = "/tmp/digital_store_private"
+else:
+    PRIVATE = PRIVATE_REPO
 os.makedirs(PRIVATE, exist_ok=True)
+
+
+def _sync_private():
+    """Copy repo private files into the runtime dir (Vercel only)."""
+    if PRIVATE == PRIVATE_REPO:
+        return
+    try:
+        for name in os.listdir(PRIVATE_REPO):
+            dst = os.path.join(PRIVATE, name)
+            if not os.path.exists(dst):
+                shutil.copyfile(os.path.join(PRIVATE_REPO, name), dst)
+    except Exception:
+        pass
+
+
+_sync_private()
+
+
+def private_path(name):
+    """Resolve a private file: runtime dir, then repo dir, then generate
+    a guide PDF on demand if it is one of the 100 guides."""
+    cand = os.path.join(PRIVATE, name)
+    if os.path.exists(cand):
+        return cand
+    repo = os.path.join(PRIVATE_REPO, name)
+    if os.path.exists(repo):
+        return repo
+    if name.startswith("guide-") and name.endswith(".pdf"):
+        slug = name[6:-4]
+        for topic in guides.TOPICS:
+            if topic[0] == slug:
+                return guides.ensure_guide_file(topic, PRIVATE)
+    return cand
 
 # --- Product picture uploads: local disk under static/uploads/, but on
 # Vercel the filesystem is read-only, so uploads go to /tmp and are served
@@ -178,6 +223,10 @@ def make_sample_files():
         else:
             with open(path, "wb") as f:
                 f.write(minimal_pdf(payload[0], payload[1:]))
+    # Generate all 100 guide PDFs into the runtime private dir (no-op
+    # for files that already exist; on Vercel this is /tmp, which is
+    # writable, unlike the read-only deployment filesystem).
+    guides.ensure_all_guides(PRIVATE)
     return samples
 
 
@@ -188,87 +237,26 @@ LICENSE_LABEL = {"Personal": "Personal — 1 project",
 
 
 def _seed_products():
-    return [
-        ("modern-ui-kit", "Modern UI Kit Pro", "Templates",
-         "120 Figma + HTML components, dark/light themes, design tokens.",
-         59, "INR", "zip", "18 MB", "Figma 2024+, any browser",
-         "Figma, HTML, CSS", "120 components, 40 screens, tokens, icons.",
-         "ui-kit-pro.zip", True, "/static/product-images/modern-ui-kit.jpg",
-         "PixelCraft Studio", "top_pick", "120 components"),
-        ("lofi-sample-pack", "Lo-Fi Sample Pack Vol. 1", "Music",
-         "20 royalty-free lo-fi loops and drum hits for producers.",
-         49, "INR", "zip", "210 MB", "Any DAW",
-         "WAV, 44.1kHz", "20 loops, 30 one-shots, 120 BPM.",
-         "music-pack.zip", False, "/static/product-images/lofi-sample-pack.jpg",
-         "ReelForge Media", "", "50 audio files"),
-        ("creator-os-notion", "Creator OS — Notion Template", "Templates",
-         "Plan content, track clients and run a creator business in Notion.",
-         49, "INR", "zip", "1.4 MB", "Notion (free plan works)",
-         "Markdown, Notion", "Content calendar, CRM, finance tracker.",
-         "notion-template.zip", False, "/static/product-images/creator-os.jpg",
-         "StudyNest Press", "", "12 dashboards"),
-        ("freelance-playbook", "Freelance Client-Getting Playbook", "PDF Guides",
-         "An original PDF playbook for landing freelance clients: outreach scripts, pricing, proposals and follow-ups.",
-         59, "INR", "pdf", "8.6 MB", "Any PDF reader",
-         "PDF", "142 pages, scripts, templates, checklists.",
-         "freelance-playbook.pdf", False, "/static/product-images/freelance-playbook.jpg",
-         "LearnLoop Academy", "top_pick", "142 pages"),
-        ("reels-growth-bundle", "Instagram Reels Growth Bundle — 500 Reels", "Reels Bundles",
-         "500 ready-to-post vertical reels for creators: hooks, captions and trending formats in one bundle.",
-         59, "INR", "zip", "4.8 GB", "Instagram, any editor",
-         "MP4, 1080x1920", "500 reels, captions included.",
-         "reels-growth-bundle.zip", False, "/static/product-images/reels-growth-bundle.jpg",
-         "ReelForge Media", "staff_pick", "500 videos"),
-        ("shorts-starter-pack", "YouTube Shorts Starter Pack — 300 Videos", "Video Bundles",
-         "300 vertical short videos to kick-start a channel: intros, explainers and faceless formats.",
-         49, "INR", "zip", "3.2 GB", "YouTube, any editor",
-         "MP4, 1080x1920", "300 videos, ready to upload.",
-         "shorts-starter-pack.zip", False, "/static/product-images/shorts-starter-pack.jpg",
-         "ReelForge Media", "todays_choice", "300 videos"),
-        ("python-course-bundle", "Python for Beginners — Complete Course Bundle", "Courses",
-         "A friendly video course bundle taking you from first script to small real projects, with exercises.",
-         59, "INR", "zip", "6.1 GB", "Any video player",
-         "MP4, 1080p", "42 lessons, exercises, solutions.",
-         "python-course-bundle.zip", False, "/static/product-images/python-beginners.jpg",
-         "LearnLoop Academy", "top_pick", "42 videos"),
-        ("canva-template-pack", "Canva Social Media Template Pack — 200 Designs", "Templates",
-         "200 editable social templates for posts, stories and carousels, in a clean modern style.",
-         49, "INR", "zip", "96 MB", "Canva (free plan works)",
-         "Canva", "200 templates, posts + stories.",
-         "canva-template-pack.zip", False, "/static/product-images/canva-template-pack.jpg",
-         "PixelCraft Studio", "latest", "200 templates"),
-        ("wedding-presets", "Wedding Photography Preset Collection — 60 Looks", "Presets",
-         "60 warm, timeless wedding presets for Lightroom, with before/after examples.",
-         49, "INR", "zip", "18 MB", "Lightroom Classic / Mobile",
-         "XMP, DNG", "60 presets, before/after guide.",
-         "wedding-presets.zip", False, "/static/product-images/wedding-presets.jpg",
-         "PixelCraft Studio", "staff_pick", "60 presets"),
-        ("meal-prep-guide", "Healthy Meal Prep Guide — 90-Day PDF Plan", "PDF Guides",
-         "A practical 90-day meal prep PDF: weekly plans, shopping lists and simple recipes.",
-         39, "INR", "pdf", "6.4 MB", "Any PDF reader",
-         "PDF", "118 pages, shopping lists, recipes.",
-         "meal-prep-guide.pdf", False, "/static/product-images/meal-prep-guide.jpg",
-         "StudyNest Press", "latest", "118 pages"),
-        ("spoken-english-course", "Spoken English Video Course — 60 Lessons", "Courses",
-         "60 short video lessons for everyday spoken English: speaking drills, vocabulary and practice tasks.",
-         59, "INR", "zip", "4.4 GB", "Any video player",
-         "MP4, 1080p", "60 lessons, practice tasks.",
-         "spoken-english-course.zip", False, "/static/product-images/spoken-english.jpg",
-         "LearnLoop Academy", "todays_choice", "60 videos"),
-        ("motivational-reels", "Motivational Reels Bundle — 250 Clips", "Reels Bundles",
-         "250 short motivational clips with captions, ready for reels and shorts.",
-         49, "INR", "zip", "2.1 GB", "Instagram, YouTube, any editor",
-         "MP4, 1080x1920", "250 clips, captions included.",
-         "motivational-reels.zip", False, "/static/product-images/motivational-reels.jpg",
-         "ReelForge Media", "", "250 videos"),
-        ("monk-method", "Monk Method", "PDF Guides",
-         "A practical PDF guide to monk-mode focus: cut distractions, build a deep-work routine, and stay disciplined day after day.",
-         49, "INR", "pdf", "5.2 MB", "Any PDF reader",
-         "PDF", "96 pages, routines, checklists, templates.",
-         "monk-method.pdf", False, "/static/product-images/monk-method.jpg",
-         "StudyNest Press", "", "96 pages"),
-    ]
+    """The catalogue: ONLY the 100 new PDF guides, all at Rs 49.
 
+    Categories (20 each): Bodybuilding, Mind Mastery, Healthmax,
+    Lookmaxing, Attractivemaxing. Seller is StudyNest Press for all.
+    image_url is empty on purpose: cards show the existing gradient
+    placeholder, so no cover images need to be generated, shipped, or
+    served (no Pillow, no extra files in the repo).
+    Badge rotates so homepage sections (Top Picks / New Arrivals /
+    Editor's Picks / Today's Choice) are all populated.
+    """
+    badges = ["top_pick", "latest", "staff_pick", "todays_choice"]
+    out = []
+    for i, (slug, title, cat, _focus, desc, _practices) in enumerate(guides.TOPICS):
+        out.append((slug, title, cat, desc, 49, "INR", "pdf", "~25 KB",
+                    "Any PDF reader", "PDF",
+                    "Practical guide with chapters, a 7-day starter routine "
+                    "and a checklist of common mistakes to avoid.",
+                    guides.guide_filename(slug), False, "",
+                    guides.SELLER, badges[i % 4], "PDF guide"))
+    return out
 
 def seed():
     make_sample_files()
@@ -291,7 +279,7 @@ def seed():
                  (pid, slug, title, cat, desc, price, cur, fmt, size, soft,
                   spec, desc, img_url, 1 if needs_key else 0,
                   seller, badge, item_count))
-        fpath = os.path.join(PRIVATE, fname)
+        fpath = private_path(fname)
         exec_sql("""INSERT INTO product_files (file_id, product_id, version_label,
             file_name, storage_object_key, file_size_bytes, is_latest)
             VALUES (?,?,?,?,?,?,1)""",
@@ -309,22 +297,12 @@ def seed():
     # affiliate
     exec_sql("INSERT INTO affiliates VALUES (?,?,?,?)",
              ("AFF1", "creator1", 0.10, 1))
-    # bundles
-    exec_sql("INSERT INTO bundles VALUES (?,?,?,?)",
-             ("B1", "Creator Bundle", "UI Kit + Creator OS + Lo-Fi Pack", 99))
-    for slug in ("modern-ui-kit", "creator-os-notion", "lofi-sample-pack"):
-        row = q("SELECT product_id FROM products WHERE slug=?", (slug,), one=True)
-        exec_sql("INSERT INTO bundle_items VALUES (?,?,?)",
-                 (str(uuid.uuid4()), "B1", row["product_id"]))
     # admin (change password before production!)
     exec_sql("INSERT INTO users VALUES (?,?,?,?,?,?,?)",
              (str(uuid.uuid4()), "admin@store.local",
               generate_password_hash("admin123"), "Store Admin", "admin",
               datetime.now(timezone.utc).isoformat(),
               datetime.now(timezone.utc).isoformat()))
-
-
-SEEDED_IMAGES = {'modern-ui-kit': '/static/product-images/modern-ui-kit.jpg', 'lofi-sample-pack': '/static/product-images/lofi-sample-pack.jpg', 'creator-os-notion': '/static/product-images/creator-os.jpg'}
 
 
 def init_db():
@@ -346,9 +324,9 @@ def init_db():
     # the new 39-59 price range, so old DBs match the fresh-seed catalogue.
     _SEEDED_BY_SLUG = {t[0]: t for t in _seed_products()}
     for slug, t in _SEEDED_BY_SLUG.items():
-        _img = {"modern-ui-kit": "modern-ui-kit.jpg", "lofi-sample-pack": "lofi-sample-pack.jpg", "creator-os-notion": "creator-os.jpg", "freelance-playbook": "freelance-playbook.jpg", "reels-growth-bundle": "reels-growth-bundle.jpg", "shorts-starter-pack": "shorts-starter-pack.jpg", "python-course-bundle": "python-beginners.jpg", "canva-template-pack": "canva-template-pack.jpg", "wedding-presets": "wedding-presets.jpg", "meal-prep-guide": "meal-prep-guide.jpg", "spoken-english-course": "spoken-english.jpg", "motivational-reels": "motivational-reels.jpg", "monk-method": "monk-method.jpg"}[slug]
+        # t[13] is image_url, t[4] is price, from the seed tuple itself.
         db().execute("UPDATE products SET image_url=?, price=? WHERE slug=?",
-                     (f"/static/product-images/{_img}", t[4], slug))
+                     (t[13], t[4], slug))
     db().commit()
     seed()
     # Backfill: stores seeded before the marketplace catalogue existed only
@@ -368,7 +346,7 @@ def init_db():
                  (pid, slug, title, cat, desc, price, cur, fmt, size, soft,
                   spec, desc, img_url, 1 if needs_key else 0,
                   seller, badge, item_count))
-        fpath = os.path.join(PRIVATE, fname)
+        fpath = private_path(fname)
         if os.path.isfile(fpath):
             exec_sql("""INSERT INTO product_files (file_id, product_id, version_label,
                 file_name, storage_object_key, file_size_bytes, is_latest)
@@ -414,9 +392,16 @@ def stamped_download(file_path, file_name, email, txn_id):
                     zout.writestr(item, zin.read(item.filename))
                 zout.writestr("STAMP.txt", stamp)
     elif file_name.endswith(".pdf"):
-        buf.write(minimal_pdf("Licensed copy",
-                              [stamp.strip(), f"Product file: {file_name}",
-                               "This stamped cover page proves licensed delivery."]))
+        # NOTE: do NOT replace the PDF with a stamped cover page. The old
+        # code did exactly that, so a buyer downloading a guide received
+        # only a cover page and lost the guide itself. Proper PDF stamping
+        # (merging a cover page into an existing PDF) needs a PDF library
+        # that is not available here, so PDFs are served as-is. Access is
+        # still protected: the download route only serves paid orders,
+        # through a signed, expiring token, with a download-count limit,
+        # and the buyer email + transaction are logged in download_logs.
+        with open(file_path, "rb") as f:
+            buf.write(f.read())
     else:
         with open(file_path, "rb") as f:
             buf.write(f.read())
@@ -750,7 +735,7 @@ def download(token):
              (str(uuid.uuid4()), item_id, row["file_id"],
               request.remote_addr or "", request.headers.get("User-Agent", ""),
               "success", datetime.now(timezone.utc).isoformat()))
-    path = os.path.join(PRIVATE, row["storage_object_key"])
+    path = private_path(row["storage_object_key"])
     if not os.path.exists(path):
         abort(404)
     stamped = stamped_download(path, row["file_name"], row["buyer_email"],
@@ -1147,12 +1132,12 @@ def admin_delete_all():
 
 @app.route("/admin/restore-catalogue", methods=["POST"])
 def admin_restore_catalogue():
-    """Re-add any missing demo catalogue products (admin only).
+    """Re-add any missing catalogue products (admin only).
 
-    Only inserts products whose slug is missing, plus missing coupons /
-    bundles — never touches existing products, orders or the admin
-    account. This is the way back after a Delete All, or after a deploy
-    that left the live catalogue empty.
+    Only inserts products whose slug is missing, plus missing coupons —
+    never touches existing products, orders or the admin account.
+    This is the way back after a Delete All, or after a deploy
+    that left the live catalogue empty. Restores the NEW 100 guides.
     """
     r = admin_required()
     if r:
@@ -1172,7 +1157,7 @@ def admin_restore_catalogue():
                  (pid, slug, title, cat, desc, price, cur, fmt, size, soft,
                   spec, desc, img_url, 1 if needs_key else 0,
                   seller, badge, item_count))
-        fpath = os.path.join(PRIVATE, fname)
+        fpath = private_path(fname)
         if os.path.isfile(fpath):
             exec_sql("""INSERT INTO product_files (file_id, product_id, version_label,
                 file_name, storage_object_key, file_size_bytes, is_latest)
@@ -1180,7 +1165,7 @@ def admin_restore_catalogue():
                      (str(uuid.uuid4()), pid, "1.0.0", fname, fname,
                       os.path.getsize(fpath)))
         added += 1
-    # Missing coupons / affiliate / bundle, without duplicating existing rows.
+    # Missing coupons / affiliate, without duplicating existing rows.
     for code, pct, amt, limit in (("WELCOME10", 10, None, 100),
                                   ("FLAT100", None, 100, 50),
                                   ("FLASH25", 25, None, 20),
@@ -1190,14 +1175,6 @@ def admin_restore_catalogue():
                      (code, pct, amt, limit, 0, "2099-01-01", 1))
     if not q("SELECT affiliate_id FROM affiliates WHERE code=?", ("creator1",), one=True):
         exec_sql("INSERT INTO affiliates VALUES (?,?,?,?)", ("AFF1", "creator1", 0.10, 1))
-    if not q("SELECT bundle_id FROM bundles WHERE bundle_id=?", ("B1",), one=True):
-        exec_sql("INSERT INTO bundles VALUES (?,?,?,?)",
-                 ("B1", "Creator Bundle", "UI Kit + Creator OS + Lo-Fi Pack", 99))
-        for slug in ("modern-ui-kit", "creator-os-notion", "lofi-sample-pack"):
-            row = q("SELECT product_id FROM products WHERE slug=?", (slug,), one=True)
-            if row:
-                exec_sql("INSERT INTO bundle_items VALUES (?,?,?)",
-                         (str(uuid.uuid4()), "B1", row["product_id"]))
     flash(f"Demo catalogue restored ({added} products added).")
     return redirect(url_for("admin_dashboard"))
 
