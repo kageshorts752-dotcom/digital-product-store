@@ -58,4 +58,6 @@
 <form method="post" action="/admin/delete-all" onsubmit="return confirm('This will permanently delete ALL products, orders and coupons. This cannot be undone. Are you sure?');"><button class="danger">Delete All Products, Orders &amp; Coupons</button></form>
 <p><b>Restore Demo Catalogue</b> — re-adds any missing demo products, coupons and the Creator Bundle. Nothing existing is changed or deleted.</p>
 <form method="post" action="/admin/restore-catalogue"><button>Restore Demo Catalogue</button></form></div>
+<h2>Contact messages</h2>{% for c in contacts %}<div class="card"><p><b>{{c.subject}}</b> — {{c.name}} ({{c.email}})</p><p>{{c.message}}</p></div>{% else %}<p>No contact messages yet.</p>{% endfor %}
+<h2>Order emails queued</h2><p>These thank-you emails are queued per sale. They send automatically only if SMTP is set in env; otherwise send them from kageshorts752@gmail.com and mark sent in the database.</p>{% for e in email_queue %}<div class="card"><p>{{e.to_email}} — {{e.subject}} — {{e.status}}</p></div>{% else %}<p>No order emails queued yet.</p>{% endfor %}
 {% endblock %}

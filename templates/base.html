@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{% block title %}Product King{% endblock %}</title><link rel="stylesheet" href="/static/style.css"></head>
+<title>{% block title %}Product King{% endblock %}</title><meta name="description" content="Product King — practical PDF guides for body, mind, health and style. Instant download after payment."><meta property="og:title" content="Product King"><meta property="og:description" content="Practical PDF guides for body, mind, health and style."><link rel="stylesheet" href="/static/style.css"></head>
 <body><header class="site"><a href="/" class="logo" style="display:flex;align-items:center;gap:10px"><img src="/static/product-king-logo.png" alt="Product King" style="height:44px;width:44px;border-radius:10px"> <span>Product King</span></a>
-<nav><a href="/">Store</a> <a href="/library">My Library</a> <a href="/cart">Cart</a> <a href="/admin">Admin</a></nav></header>
+<nav><a href="/">Store</a> <a href="/wishlist">Wishlist</a> <a href="/library">My Library</a> <a href="/cart">Cart</a> <a href="/admin">Admin</a></nav></header>
 <main>{% with m=get_flashed_messages() %}{% if m %}<div class="flash">{% for x in m %}<p>{{x}}</p>{% endfor %}</div>{% endif %}{% endwith %}
 {% block content %}{% endblock %}</main>
-<footer><p>Demo payments only for Stripe/PayPal/Razorpay. UPI orders stay pending until admin confirms receipt — files unlock only then.</p></footer></body></html>
+<footer><p><a href="/page/faq">FAQ</a> · <a href="/page/terms">Terms</a> · <a href="/page/privacy">Privacy</a> · <a href="/page/refund">Refunds</a> · <a href="/contact">Contact</a> · <a href="/sitemap.xml">Sitemap</a></p><p>Demo payments only for Stripe/PayPal/Razorpay. UPI orders stay pending until admin confirms receipt — files unlock only then.</p></footer></body></html>

@@ -16,6 +16,7 @@
 <span class="tag">✔ Verified Assets · Instant Delivery · Special Offers</span>
 <h1>PDF guides &amp; video bundles, ready to download</h1>
 <p>Original eBooks, courses, reels and video bundles from independent creators — buy once, download instantly, keep forever.</p>
+<form method="get" action="/" style="margin:12px 0"><label>Sort <select name="sort"><option value="">Default</option><option value="price_asc" {% if sort=='price_asc' %}selected{% endif %}>Price: low to high</option><option value="price_desc" {% if sort=='price_desc' %}selected{% endif %}>Price: high to low</option></select></label><button>Apply</button></form>
 <form method="get" action="/" class="searchbar">
 <input type="search" name="q" placeholder="Search PDF guides, video bundles, reels…" value="{{q or ''}}">
 <button>Search</button>
@@ -27,6 +28,8 @@
 <p class="trust">✔ Verified Assets &nbsp;·&nbsp; ⚡ Instant Delivery &nbsp;·&nbsp; 🏷️ Special Offers</p>
 </section>
 
+{% if bestsellers %}<h2>🏆 Bestsellers</h2><div class="grid">{% for p in bestsellers %}{{ card(p) }}{% endfor %}</div>{% endif %}
+{% if recent %}<h2>🕘 Recently viewed</h2><div class="grid">{% for p in recent %}{{ card(p) }}{% endfor %}</div>{% endif %}
 {% if searching %}
 <h2>{% if q %}Results for “{{q}}”{% else %}{{category}}{% endif %}</h2>
 {% if products %}<div class="grid">{% for p in products %}{{ card(p) }}{% endfor %}</div>

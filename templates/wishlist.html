@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Wishlist{% endblock %}{% block content %}
+<h1>Your wishlist</h1>
+{% if items %}<div class="grid">{% for p in items %}<div class="card">
+<img class="card-img" src="/cover/{{p.slug}}/1/small" alt="{{p.title}}" loading="lazy">
+<h3><a href="/product/{{p.slug}}">{{p.title}}</a></h3><p class="price">₹{{p.price}}</p>
+<a class="btn" href="/product/{{p.slug}}">View product →</a>
+<form method="post" action="/wishlist/remove/{{p.slug}}"><button>Remove</button></form>
+</div>{% endfor %}</div>
+{% else %}<p>Your wishlist is empty. <a href="/">Browse guides →</a></p>{% endif %}
+{% endblock %}
