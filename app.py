@@ -1374,16 +1374,6 @@ def admin_confirm(order_id):
     return redirect(url_for("admin_dashboard"))
 
 
-@app.route("/admin/order/<order_id>/refund", methods=["POST"])
-def admin_refund(order_id):
-    r = admin_required()
-    if r:
-        return r
-    exec_sql("UPDATE orders SET status='refunded' WHERE order_id=?", (order_id,))
-    exec_sql("""UPDATE license_keys SET status='revoked' WHERE order_item_id IN
-                (SELECT order_item_id FROM order_items WHERE order_id=?)""", (order_id,))
-    flash("Order refunded — downloads and license keys revoked.")
-    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/admin/delete-all", methods=["POST"])
@@ -1521,7 +1511,6 @@ PAGES = {
     "faq": ("FAQ", "How do I get my PDF? After payment is confirmed, your library unlocks and you download instantly from /library using your email. Are the guides original? Yes, every guide is written for Product King. Is there a return? No returns \u2014 instant digital PDF, so please check the preview before buying. Do I need an account? No, guest checkout works; your library is found by email."),
     "terms": ("Terms of Use", "You buy a personal license to download and read the PDF. You may not resell, redistribute, or post the files publicly. Content is general information only, not medical, legal, or financial advice."),
     "privacy": ("Privacy Policy", "We store only what checkout needs: your email, order totals, and an optional GSTIN. Downloads are logged (IP and device) to prevent abuse. We do not sell your details."),
-    "refund": ("Refund Policy", "No returns and no refunds on instant digital PDFs, as stated on every product and checkout page. If a download genuinely fails, contact us and we will fix the link."),
 }
 
 
