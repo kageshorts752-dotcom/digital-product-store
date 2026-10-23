@@ -703,7 +703,26 @@ def product_cover(slug, variant):
         abort(404)
     resp = send_file(_cover_image(p["title"], p["category"] or "", p["price"], variant, p["slug"]),
                      mimetype="image/jpeg", download_name=f"{slug}-cover-{variant}.jpg")
-    resp.headers["Cache-Control"] = "public, max-age=86400"
+    resp.headers["Cache-Control"] = "public, max-age=604800"
+    return resp
+
+
+@app.route("/cover/<slug>/<int:variant>/small")
+def product_cover_small(slug, variant):
+    # Fast homepage thumbnail: same cover, half size, lighter JPEG.
+    # Homepage cards display ~300px wide, so 400x500 is plenty and
+    # cuts each image from ~95KB to ~30KB (101 cards: ~9.6MB -> ~3MB).
+    from PIL import Image
+    p = q("SELECT * FROM products WHERE slug=?", (slug,), one=True)
+    if not p or variant not in (1, 2, 3):
+        abort(404)
+    buf = _cover_image(p["title"], p["category"] or "", p["price"], variant, p["slug"])
+    img = Image.open(buf).resize((400, 500), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=78)
+    out.seek(0)
+    resp = send_file(out, mimetype="image/jpeg", download_name=f"{slug}-cover-{variant}-small.jpg")
+    resp.headers["Cache-Control"] = "public, max-age=604800"
     return resp
 
 
