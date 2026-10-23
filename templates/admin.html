@@ -49,4 +49,6 @@
 <h2>Coupons</h2>{% for c in coupons %}<div class="card">{{c.code}} — {{c.discount_pct}}% / ₹{{c.discount_amount}} — used {{c.used_count}}/{{c.usage_limit}}</div>{% endfor %}
 <h2>Affiliates</h2>{% for a in affiliates %}<div class="card">{{a.code}} — {{(a.commission_rate*100)|int}}% — link: /ref/{{a.code}}</div>{% endfor %}
 <h2>Update notifications (log)</h2>{% for n in notes %}<div class="card">{{n.title}} — {{n.note}} — {{n.created_at}}</div>{% else %}<p>No notifications yet.</p>{% endfor %}
+<h2>Danger Zone</h2><div class="card"><p><b>Delete All Products, Orders &amp; Coupons</b> — this permanently deletes every product (and its files and bundles), every order (and its items, license keys, download logs and affiliate commissions), and every coupon. Users, affiliates and notifications are kept. This cannot be undone.</p>
+<form method="post" action="/admin/delete-all" onsubmit="return confirm('This will permanently delete ALL products, orders and coupons. This cannot be undone. Are you sure?');"><button class="danger">Delete All Products, Orders &amp; Coupons</button></form></div>
 {% endblock %}
