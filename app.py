@@ -645,6 +645,15 @@ def checkout():
             return redirect(url_for("checkout"))
         session["country"] = country
         totals = cart_total(items, coupon, country)
+        # 100% off (total ₹0): no payment step at all — mark paid and
+        # send the buyer straight to their library, where downloads unlock.
+        if totals[3] == 0:
+            oid = create_order(email, items, totals, "free", country,
+                               session.get("coupon"), session.get("ref"))
+            session.pop("cart", None)
+            session.pop("coupon", None)
+            flash("Added to your library — no payment needed (100% off).")
+            return redirect(url_for("library", email=email))
         oid = create_order(email, items, totals, gateway, country,
                            session.get("coupon"), session.get("ref"))
         session.pop("cart", None)
