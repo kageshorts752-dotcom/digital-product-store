@@ -1544,16 +1544,6 @@ def contact_page():
     return render_template("contact.html")
 
 
-@app.route("/sitemap.xml")
-def sitemap():
-    urls = ["https://digital-product-store-shirishgores-projects.vercel.app/",
-            "https://digital-product-store-shirishgores-projects.vercel.app/page/faq",
-            "https://digital-product-store-shirishgores-projects.vercel.app/contact"]
-    for pr in q("SELECT slug FROM products WHERE is_published=1"):
-        urls.append(f"https://digital-product-store-shirishgores-projects.vercel.app/product/{pr['slug']}")
-    body = "\n".join(f"<url><loc>{u}</loc></url>" for u in urls)
-    return app.response_class(f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n{body}\n</urlset>",
-                              mimetype="application/xml")
 
 
 @app.route("/admin/review/<review_id>/delete", methods=["POST"])
