@@ -1,8 +1,10 @@
 {% extends "base.html" %}{% block content %}<section class="hero"><h1>Checkout</h1><p>Email only, no shipping address.</p></section>
 {% for i in items %}<div class="card">{% if i.kind=='bundle' %}{{i.bundle.title}}{% else %}{{i.product.title}} — {{i.license}}{% endif %} — ₹{{i.price}}</div>{% endfor %}
 <p>Subtotal ₹{{totals[0]}} · Discount ₹{{totals[1]}} · GST ₹{{totals[2]}} · <b>Total ₹{{totals[3]}}</b> (18% GST for India, 0% elsewhere)</p>
+<div class="no-returns">⚠️ No returns — digital PDF, instant download after payment is confirmed. Please check the preview before buying.</div>
 <form method="post" action="/checkout">
 <label>Email for delivery <input type="email" name="email" required></label><br>
+<label>GST number (optional, for business invoices) <input type="text" name="gstin" placeholder="e.g. 27ABCDE1234F1Z5"></label><br>
 <label>Country <select name="country"><option value="IN">India (18% GST)</option><option value="US">United States (0%)</option><option value="GB">United Kingdom (0%)</option><option value="OTHER">Other (0%)</option></select></label><br>
 {% if totals[3] == 0 %}<p><b>100% off — no payment needed.</b> This order will go straight to your library, with downloads unlocked.</p>
 {% else %}<label>Payment method

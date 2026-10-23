@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Invoice {{o.order_id[:8]}}</title><link rel="stylesheet" href="/static/style.css"></head><body>
-<h1>{{store}} — Tax Invoice</h1><p>Order: {{o.order_id}}<br>Buyer: {{o.buyer_email}}<br>Status: {{o.status}}<br>Gateway: {{o.payment_gateway}}</p>
+<h1>{{store}} — Tax Invoice</h1><p>Order: {{o.order_id}}<br>Buyer: {{o.buyer_email}}{% if o.buyer_gstin %}<br>Buyer GST number: {{o.buyer_gstin}}{% endif %}<br>Status: {{o.status}}<br>Gateway: {{o.payment_gateway}}</p>
 <table><tr><th>Item</th><th>Price</th></tr>{% for i in items %}<tr><td>{{i.title}}</td><td>₹{{i.unit_price}}</td></tr>{% endfor %}</table>
 <p>Subtotal ₹{{o.subtotal_amount}}<br>Discount ₹{{o.discount_amount}}<br>GST ₹{{o.tax_amount}}<br><b>Total ₹{{o.total_amount}}</b></p>
 <button onclick="window.print()">Print invoice</button></body></html>
