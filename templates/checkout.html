@@ -4,15 +4,16 @@
 <form method="post" action="/checkout">
 <label>Email for delivery <input type="email" name="email" required></label><br>
 <label>Country <select name="country"><option value="IN">India (18% GST)</option><option value="US">United States (0%)</option><option value="GB">United Kingdom (0%)</option><option value="OTHER">Other (0%)</option></select></label><br>
-<label>Payment method
+{% if totals[3] == 0 %}<p><b>100% off — no payment needed.</b> This order will go straight to your library, with downloads unlocked.</p>
+{% else %}<label>Payment method
 <select name="gateway" id="gw" onchange="document.getElementById('upi').style.display=(this.value=='upi'||this.value=='youpi')?'block':'none'">
-<option value="youpi" selected>YouPI UPI — PRIMARY (experimental — research project, not production-ready)</option><option value="upi">UPI — direct payee, pending until confirmed</option><option value="stripe">Stripe (DEMO — secondary fallback, no real charge)</option><option value="razorpay">Razorpay (DEMO — secondary fallback)</option><option value="paypal">PayPal (DEMO — secondary fallback)</option></select></label>
-<div id="upi" style="display:block" class="card"><h3>Pay by YouPI UPI (primary) / UPI</h3>
+<option value="youpi" selected>YouPI UPI — PRIMARY (experimental — research project, not production-ready)</option><option value="upi">UPI — direct payee, pending until confirmed</option><option value="stripe">Stripe (DEMO — secondary fallback, no real charge)</option><option value="razorpay">Razorpay (DEMO — secondary fallback)</option><option value="paypal">PayPal (DEMO — secondary fallback)</option></select></label>{% endif %}
+{% if totals[3] != 0 %}<div id="upi" style="display:block" class="card"><h3>Pay by YouPI UPI (primary) / UPI</h3>
 <p><b>YouPI notice:</b> YouPI PG V2 is an experimental research project, not certified, bank-approved, NPCI-approved, audited, or production-ready. Do not rely on it for critical, high-value, or high-volume payments, and do not treat it as sole proof of settlement. Reconcile against bank records. Suggested test limit: 20 transactions/day per receiving account. The Android observer, Gmail/SMS ingestion, and Node.js service stack are NOT included in this Flask store or in a Vercel deploy. For critical sales, use Razorpay/Stripe instead.</p>
 <p>Pay to the store's UPI ID shown below, or open the UPI link. <b>Do not expect instant delivery:</b> this order stays <b>pending</b> until the admin confirms receipt, because UPI has no automatic webhook here. Files unlock only after confirmation.</p>
 <p>UPI ID: <code id="upiid">{{upi_id}}</code> <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('upiid').innerText)">Copy UPI ID</button></p>
 {% if upi_link %}<p><a href="{{upi_link}}">Open UPI app to pay ₹{{totals[3]}}</a></p><p class="small">Link: <code>{{upi_link}}</code></p>{% endif %}
-<p class="small">QR code: generated locally only if the qrcode library is installed; otherwise use the link / copyable ID above. No external QR service is used.</p></div>
-<button>Pay / Place order</button></form>
+<p class="small">QR code: generated locally only if the qrcode library is installed; otherwise use the link / copyable ID above. No external QR service is used.</p></div>{% endif %}
+<button>{% if totals[3] == 0 %}Add to my library (free){% else %}Pay / Place order{% endif %}</button></form>
 <p class="small">Demo gateways simulate payment_intent.succeeded and unlock files immediately. UPI does not auto-unlock.</p>
 {% endblock %}
