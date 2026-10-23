@@ -1141,9 +1141,18 @@ def admin_required():
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
-        u = q("SELECT * FROM users WHERE email=? AND role='admin'",
-              (request.form.get("email", "").strip().lower(),), one=True)
-        if u and check_password_hash(u["password_hash"], request.form.get("password", "")):
+        em = (request.form.get("email", "").strip().lower())
+        pw = request.form.get("password", "")
+        # Env admin (set in Vercel: STORE_ADMIN_USER / STORE_ADMIN_PASS)
+        # takes precedence over the seeded demo account, and the secret
+        # never lives in the public repo.
+        env_user = os.environ.get("STORE_ADMIN_USER", "").strip().lower()
+        env_pass = os.environ.get("STORE_ADMIN_PASS", "")
+        if env_user and em == env_user and pw and hmac.compare_digest(pw, env_pass):
+            session["is_admin"] = True
+            return redirect(url_for("admin_dashboard"))
+        u = q("SELECT * FROM users WHERE email=? AND role='admin'", (em,), one=True)
+        if (not env_user) and u and check_password_hash(u["password_hash"], pw):
             session["is_admin"] = True
             session["user_id"] = u["user_id"]
             return redirect(url_for("admin_dashboard"))
