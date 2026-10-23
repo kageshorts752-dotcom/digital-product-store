@@ -32,6 +32,8 @@
 {% if products %}<div class="grid">{% for p in products %}{{ card(p) }}{% endfor %}</div>
 {% else %}<p>No products found. <a href="/">Browse everything →</a></p>{% endif %}
 {% else %}
+{% if featured %}<h2>🔥 Featured — New On Top</h2>
+<div class="grid">{{ card(featured) }}</div>{% endif %}
 <h2>🔥 Explore Top Picks</h2>
 <div class="grid">{% for p in top_picks %}{{ card(p) }}{% endfor %}</div>
 <h2>🆕 New Arrivals</h2>
