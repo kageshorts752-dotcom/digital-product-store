@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{% block title %}Digital Store{% endblock %}</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><header class="site"><a href="/" class="logo">🛍️ <span>Digital</span> Store</a>
+<title>{% block title %}Product King{% endblock %}</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><header class="site"><a href="/" class="logo" style="display:flex;align-items:center;gap:10px"><img src="/static/product-king-logo.png" alt="Product King" style="height:44px;width:44px;border-radius:10px"> <span>Product King</span></a>
 <nav><a href="/">Store</a> <a href="/library">My Library</a> <a href="/cart">Cart</a> <a href="/admin">Admin</a></nav></header>
 <main>{% with m=get_flashed_messages() %}{% if m %}<div class="flash">{% for x in m %}<p>{{x}}</p>{% endfor %}</div>{% endif %}{% endwith %}
 {% block content %}{% endblock %}</main>
