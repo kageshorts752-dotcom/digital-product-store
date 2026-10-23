@@ -9,7 +9,7 @@
 <p class="small">by <a href="/store/{{ (p.seller_name or '').lower().replace(' ', '-') }}">{{p.seller_name or 'Shirish Digital Store'}}</a>{% if p.item_count %} · {{p.item_count}}{% endif %}</p>
 <p><span class="badge">{{p.category}}</span> <span class="badge">{{p.file_format|upper}}</span></p>
 <p>{{p.description}}</p>
-<p class="price">₹{{p.price}}</p><a href="/product/{{p.slug}}">View product →</a>
+<p class="price">₹{{p.price}}</p><a class="btn" href="/product/{{p.slug}}">View product →</a>
 </div>
 {% endmacro %}
 <section class="hero marketplace-hero">
