@@ -264,7 +264,12 @@ def _seed_products():
 
 def seed():
     make_sample_files()
+    # Fresh DB only: if an admin user already exists, this DB was already
+    # seeded (or deliberately wiped with Delete All) — never re-seed, or
+    # Delete All would be undone on the next request.
     if q("SELECT COUNT(*) c FROM products", one=True)["c"]:
+        return
+    if q("SELECT COUNT(*) c FROM users", one=True)["c"]:
         return
     products = _seed_products()
     for (slug, title, cat, desc, price, cur, fmt, size, soft, fmt2, spec,
@@ -1114,6 +1119,62 @@ def admin_delete_all():
     return redirect(url_for("admin_dashboard"))
 
 
+@app.route("/admin/restore-catalogue", methods=["POST"])
+def admin_restore_catalogue():
+    """Re-add any missing demo catalogue products (admin only).
+
+    Only inserts products whose slug is missing, plus missing coupons /
+    bundles — never touches existing products, orders or the admin
+    account. This is the way back after a Delete All, or after a deploy
+    that left the live catalogue empty.
+    """
+    r = admin_required()
+    if r:
+        return r
+    make_sample_files()
+    added = 0
+    for (slug, title, cat, desc, price, cur, fmt, size, soft, fmt2, spec,
+         fname, needs_key, img_url, seller, badge, item_count) in _seed_products():
+        if q("SELECT product_id FROM products WHERE slug=?", (slug,), one=True):
+            continue
+        pid = str(uuid.uuid4())
+        exec_sql("""INSERT INTO products (product_id, slug, title, category,
+            description, price, currency, file_format, file_size, software,
+            specs, preview_text, image_url, requires_license_key, is_published,
+            seller_name, badge, item_count)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)""",
+                 (pid, slug, title, cat, desc, price, cur, fmt, size, soft,
+                  spec, desc, img_url, 1 if needs_key else 0,
+                  seller, badge, item_count))
+        fpath = os.path.join(PRIVATE, fname)
+        if os.path.isfile(fpath):
+            exec_sql("""INSERT INTO product_files (file_id, product_id, version_label,
+                file_name, storage_object_key, file_size_bytes, is_latest)
+                VALUES (?,?,?,?,?,?,1)""",
+                     (str(uuid.uuid4()), pid, "1.0.0", fname, fname,
+                      os.path.getsize(fpath)))
+        added += 1
+    # Missing coupons / affiliate / bundle, without duplicating existing rows.
+    for code, pct, amt, limit in (("WELCOME10", 10, None, 100),
+                                  ("FLAT100", None, 100, 50),
+                                  ("FLASH25", 25, None, 20)):
+        if not q("SELECT code FROM coupons WHERE code=?", (code,), one=True):
+            exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
+                     (code, pct, amt, limit, 0, "2099-01-01", 1))
+    if not q("SELECT affiliate_id FROM affiliates WHERE code=?", ("creator1",), one=True):
+        exec_sql("INSERT INTO affiliates VALUES (?,?,?,?)", ("AFF1", "creator1", 0.10, 1))
+    if not q("SELECT bundle_id FROM bundles WHERE bundle_id=?", ("B1",), one=True):
+        exec_sql("INSERT INTO bundles VALUES (?,?,?,?)",
+                 ("B1", "Creator Bundle", "UI Kit + Creator OS + Lo-Fi Pack", 99))
+        for slug in ("modern-ui-kit", "creator-os-notion", "lofi-sample-pack"):
+            row = q("SELECT product_id FROM products WHERE slug=?", (slug,), one=True)
+            if row:
+                exec_sql("INSERT INTO bundle_items VALUES (?,?,?)",
+                         (str(uuid.uuid4()), "B1", row["product_id"]))
+    flash(f"Demo catalogue restored ({added} products added).")
+    return redirect(url_for("admin_dashboard"))
+
+
 @app.route("/ref/<code>")
 def affiliate_ref(code):
     session["ref"] = code
@@ -1122,6 +1183,30 @@ def affiliate_ref(code):
 
 with app.app_context():
     init_db()
+
+
+@app.before_request
+def ensure_catalogue():
+    # Vercel serverless instances can lose the import-time seed (each
+    # instance gets its own /tmp DB), leaving the live store empty. Only
+    # seed a truly fresh DB (no products AND no users): if an admin user
+    # exists, an empty catalogue means Delete All was used, and it must
+    # stay empty until the admin clicks Restore. Swallow errors so a
+    # seeding hiccup never turns a page load into a 500.
+    try:
+        row = q("SELECT COUNT(*) c FROM products", one=True)
+        if row and row["c"]:
+            return
+        urow = q("SELECT COUNT(*) c FROM users", one=True)
+        if urow and urow["c"]:
+            return
+        init_db()
+    except Exception:
+        try:
+            db().rollback()
+        except Exception:
+            pass
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
