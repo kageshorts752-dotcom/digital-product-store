@@ -2,7 +2,7 @@
 <section class="hero">{% if p.badge == 'staff_pick' %}<span class="badge staff">⭐ Staff Pick</span>{% endif %}<h1>{{p.title}}</h1>
 <p class="small">by <a href="/store/{{ (p.seller_name or '').lower().replace(' ', '-') }}">{{p.seller_name or 'Shirish Digital Store'}}</a>{% if p.item_count %} · {{p.item_count}}{% endif %}</p>
 <p>{{p.description}}</p><p class="price">₹{{p.price}}</p></section>
-<h2>Pictures</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">{% if p.image_url %}<img style="width:100%;border-radius:14px" src="{{p.image_url}}" alt="{{p.title}}">{% endif %}<img style="width:100%;border-radius:14px" src="/cover/{{p.slug}}/1" alt="{{p.title}} — picture 1"><img style="width:100%;border-radius:14px" src="/cover/{{p.slug}}/2" alt="{{p.title}} — picture 2"><img style="width:100%;border-radius:14px" src="/cover/{{p.slug}}/3" alt="{{p.title}} — picture 3"></div><p class="small">Instant PDF download after checkout · General information only, not medical advice.</p>
+<h2>Picture</h2><div><img style="width:100%;border-radius:14px" src="/cover/{{p.slug}}/1" alt="{{p.title}}"></div><p class="small">Instant PDF download after checkout · General information only, not medical advice.</p>
 <p><span class="badge">{{p.file_format|upper}}</span> <span class="badge">{{p.file_size}}</span> <span class="badge">{{p.software}}</span> <span class="badge">{{p.category}}</span></p>
 <p><b>Specs:</b> {{p.specs}}</p>
 <h2>Preview</h2><div class="preview"><p>{{p.preview_text}}</p><a href="/preview/{{p.slug}}">Open look-inside preview →</a></div>
@@ -12,6 +12,6 @@
 {% for lic, mult in licenses.items() %}<label class="inline"><input type="radio" name="license" value="{{lic}}" {% if loop.first %}checked{% endif %}>
 {{lic}} — ₹{{ (p.price*mult)|round(2) }} <small>{{labels[lic]}}</small></label><br>{% endfor %}
 <button>Buy / Add to cart</button></form>
-<h2>You may also like (one-click add-on)</h2>{% for u in upsells %}<div class="card">{% if u.image_url %}<img class="card-img" src="{{u.image_url}}" alt="{{u.title}}" loading="lazy">{% endif %}{{u.title}} — ₹{{u.price}}
+<h2>You may also like (one-click add-on)</h2>{% for u in upsells %}<div class="card"><img class="card-img" src="/cover/{{u.slug}}/1" alt="{{u.title}}" loading="lazy">{{u.title}} — ₹{{u.price}}
 <form method="post" action="/cart/add" style="display:inline"><input type="hidden" name="product_id" value="{{u.product_id}}"><button>Add</button></form></div>{% endfor %}
 {% endblock %}
