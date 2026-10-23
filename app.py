@@ -157,6 +157,8 @@ def make_sample_files():
                                      "Plan meals, prep once, eat well all week."]),
         "spoken-english-course.zip": ("zip", {"README.txt": "Spoken English Video Course — 60 lessons.\nSample only."}),
         "motivational-reels.zip": ("zip", {"README.txt": "Motivational Reels Bundle — 250 clips.\nSample only."}),
+        "monk-method.pdf": ("pdf", ["Monk Method — Sample Chapter",
+                                     "Cut distractions, build a deep-work routine, stay disciplined."]),
         "ui-kit-pro.zip": ("zip", {"README.txt": "Modern UI Kit Pro — 120 components, Figma + HTML.\nSample only."}),
         "ebook-guide.pdf": ("pdf", ["Digital Product Selling — Sample Chapter",
                                      "Sell files, not shipping. Instant delivery."]),
@@ -259,6 +261,12 @@ def _seed_products():
          "MP4, 1080x1920", "250 clips, captions included.",
          "motivational-reels.zip", False, "/static/product-images/motivational-reels.jpg",
          "ReelForge Media", "", "250 videos"),
+        ("monk-method", "Monk Method", "PDF Guides",
+         "A practical PDF guide to monk-mode focus: cut distractions, build a deep-work routine, and stay disciplined day after day.",
+         49, "INR", "pdf", "5.2 MB", "Any PDF reader",
+         "PDF", "96 pages, routines, checklists, templates.",
+         "monk-method.pdf", False, "/static/product-images/monk-method.jpg",
+         "StudyNest Press", "", "96 pages"),
     ]
 
 
@@ -296,6 +304,8 @@ def seed():
              ("FLAT100", None, 100, 50, 0, "2099-01-01", 1))
     exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
              ("FLASH25", 25, None, 20, 0, "2099-01-01", 1))
+    exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
+             ("FREE100", 100, None, 100, 0, "2099-01-01", 1))
     # affiliate
     exec_sql("INSERT INTO affiliates VALUES (?,?,?,?)",
              ("AFF1", "creator1", 0.10, 1))
@@ -336,7 +346,7 @@ def init_db():
     # the new 39-59 price range, so old DBs match the fresh-seed catalogue.
     _SEEDED_BY_SLUG = {t[0]: t for t in _seed_products()}
     for slug, t in _SEEDED_BY_SLUG.items():
-        _img = {"modern-ui-kit": "modern-ui-kit.jpg", "lofi-sample-pack": "lofi-sample-pack.jpg", "creator-os-notion": "creator-os.jpg", "freelance-playbook": "freelance-playbook.jpg", "reels-growth-bundle": "reels-growth-bundle.jpg", "shorts-starter-pack": "shorts-starter-pack.jpg", "python-course-bundle": "python-beginners.jpg", "canva-template-pack": "canva-template-pack.jpg", "wedding-presets": "wedding-presets.jpg", "meal-prep-guide": "meal-prep-guide.jpg", "spoken-english-course": "spoken-english.jpg", "motivational-reels": "motivational-reels.jpg"}[slug]
+        _img = {"modern-ui-kit": "modern-ui-kit.jpg", "lofi-sample-pack": "lofi-sample-pack.jpg", "creator-os-notion": "creator-os.jpg", "freelance-playbook": "freelance-playbook.jpg", "reels-growth-bundle": "reels-growth-bundle.jpg", "shorts-starter-pack": "shorts-starter-pack.jpg", "python-course-bundle": "python-beginners.jpg", "canva-template-pack": "canva-template-pack.jpg", "wedding-presets": "wedding-presets.jpg", "meal-prep-guide": "meal-prep-guide.jpg", "spoken-english-course": "spoken-english.jpg", "motivational-reels": "motivational-reels.jpg", "monk-method": "monk-method.jpg"}[slug]
         db().execute("UPDATE products SET image_url=?, price=? WHERE slug=?",
                      (f"/static/product-images/{_img}", t[4], slug))
     db().commit()
@@ -1157,7 +1167,8 @@ def admin_restore_catalogue():
     # Missing coupons / affiliate / bundle, without duplicating existing rows.
     for code, pct, amt, limit in (("WELCOME10", 10, None, 100),
                                   ("FLAT100", None, 100, 50),
-                                  ("FLASH25", 25, None, 20)):
+                                  ("FLASH25", 25, None, 20),
+                                  ("FREE100", 100, None, 100)):
         if not q("SELECT code FROM coupons WHERE code=?", (code,), one=True):
             exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
                      (code, pct, amt, limit, 0, "2099-01-01", 1))
