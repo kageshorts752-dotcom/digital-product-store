@@ -4,4 +4,4 @@
 <nav><a href="/">Store</a> <a href="/wishlist">Wishlist</a> <a href="/library">My Library</a> <a href="/cart">Cart</a> <a href="/admin">Admin</a></nav></header>
 <main>{% with m=get_flashed_messages() %}{% if m %}<div class="flash">{% for x in m %}<p>{{x}}</p>{% endfor %}</div>{% endif %}{% endwith %}
 {% block content %}{% endblock %}</main>
-<footer><p><a href="/page/faq">FAQ</a> · <a href="/page/terms">Terms</a> · <a href="/page/privacy">Privacy</a> · <a href="/contact">Contact</a> · <a href="/sitemap.xml">Sitemap</a></p><p>Demo payments only for Stripe/PayPal/Razorpay. UPI orders stay pending until admin confirms receipt — files unlock only then.</p></footer></body></html>
+<footer><p><a href="/page/faq">FAQ</a> · <a href="/page/terms">Terms</a> · <a href="/page/privacy">Privacy</a> · <a href="/contact">Contact</a></p><p>Demo payments only for Stripe/PayPal/Razorpay. UPI orders stay pending until admin confirms receipt — files unlock only then.</p></footer></body></html>
