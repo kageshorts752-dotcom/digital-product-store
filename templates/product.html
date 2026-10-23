@@ -12,6 +12,6 @@
 {% for lic, mult in licenses.items() %}<label class="inline"><input type="radio" name="license" value="{{lic}}" {% if loop.first %}checked{% endif %}>
 {{lic}} — ₹{{ (p.price*mult)|round(2) }} <small>{{labels[lic]}}</small></label><br>{% endfor %}
 <button>Buy / Add to cart</button></form>
-<h2>You may also like (one-click add-on)</h2>{% for u in upsells %}<div class="card"><img class="card-img" src="/cover/{{u.slug}}/1" alt="{{u.title}}" loading="lazy">{{u.title}} — ₹{{u.price}}
+<h2>You may also like (one-click add-on)</h2>{% for u in upsells %}<div class="card"><img class="card-img" src="/cover/{{u.slug}}/1/small" alt="{{u.title}}" loading="lazy">{{u.title}} — ₹{{u.price}}
 <form method="post" action="/cart/add" style="display:inline"><input type="hidden" name="product_id" value="{{u.product_id}}"><button>Add</button></form></div>{% endfor %}
 {% endblock %}
