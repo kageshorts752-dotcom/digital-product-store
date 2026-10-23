@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block content %}
 {% macro card(p) %}
 <div class="card">
-<img class="card-img" src="/cover/{{p.slug}}/1" alt="{{p.title}}" loading="lazy">
+<img class="card-img" src="/cover/{{p.slug}}/1/small" alt="{{p.title}}" loading="lazy">
 {% if p.badge == 'staff_pick' %}<span class="badge staff">⭐ Staff Pick</span>{% endif %}
 {% if p.badge == 'latest' %}<span class="badge new">New</span>{% endif %}
 {% if p.badge == 'todays_choice' %}<span class="badge choice">Today's Choice</span>{% endif %}
