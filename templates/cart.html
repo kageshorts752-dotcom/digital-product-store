@@ -2,7 +2,7 @@
 {% if not items %}<p>Cart is empty. <a href="/">Browse products</a></p>{% else %}
 {% for i in items %}<div class="card">{% if i.kind=='bundle' %}{{i.bundle.title}} (bundle){% else %}{{i.product.title}} — {{i.license}}{% endif %} — ₹{{i.price}}</div>{% endfor %}
 <p>Subtotal ₹{{totals[0]}} · Discount ₹{{totals[1]}} · Tax ₹{{totals[2]}} · <b>Total ₹{{totals[3]}}</b></p>
-<form method="post" action="/coupon"><input name="code" placeholder="Coupon code (try WELCOME10, FLAT100, FLASH25)"><button>Apply coupon</button></form>
+<form method="post" action="/coupon"><input name="code" placeholder="Coupon code (try WELCOME10, FLASH25)"><button>Apply coupon</button></form>
 <p><a href="/checkout"><button>Checkout →</button></a> <a href="/cart/clear">Clear cart</a></p>{% endif %}
 <h2>Add-on</h2>{% for u in upsells %}<div class="card">{{u.title}} — ₹{{u.price}}
 <form method="post" action="/cart/add" style="display:inline"><input type="hidden" name="product_id" value="{{u.product_id}}"><button>Add in one click</button></form></div>{% endfor %}
