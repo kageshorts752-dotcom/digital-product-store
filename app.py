@@ -578,28 +578,72 @@ def _cover_image(title, category, price, variant):
     import textwrap
     bg, fg, accent, accent2 = _COVER_PALETTES[(variant - 1) % 3]
     W, H = 800, 1000
-    img = Image.new("RGB", (W, H), bg)
+    # God-tier style: AI hero photo background + smooth dark gradient + bold
+    # oversized type (2026 trends: bold minimalism, vibrant gradients, one
+    # strong focal image, readable at thumbnail size).
+    hero = None
+    try:
+        slug = (category or "").strip().lower().replace(" ", "-")
+        path = os.path.join(os.path.dirname(__file__), "static", "hero-images", slug + ".jpg")
+        if os.path.exists(path):
+            hero = Image.open(path).convert("RGB")
+            # centre-crop to 4:5
+            tw, th = hero.size
+            target = W / H
+            if tw / th > target:
+                nw = int(th * target)
+                hero = hero.crop(((tw - nw) // 2, 0, (tw + nw) // 2, th))
+            else:
+                nh = int(tw / target)
+                hero = hero.crop((0, (th - nh) // 2, tw, (th + nh) // 2))
+            hero = hero.resize((W, H), Image.LANCZOS)
+    except Exception:
+        hero = None
+    if hero is None:
+        img = Image.new("RGB", (W, H), bg)
+        d0 = ImageDraw.Draw(img)
+        d0.ellipse([620, -80, 900, 200], fill=accent)
+        d0.ellipse([-120, 820, 180, 1120], fill=accent2)
+        img = img
+    else:
+        img = hero
+        # variant tints: 1 clean, 2 violet glow, 3 warm gold glow
+        if variant == 2:
+            img = Image.blend(img, Image.new("RGB", (W, H), (124, 58, 237)), 0.18)
+        elif variant == 3:
+            img = Image.blend(img, Image.new("RGB", (W, H), (245, 158, 11)), 0.15)
+        # smooth gradient overlays: dark at top (for badge) and bottom (for text)
+        grad = Image.new("L", (1, H))
+        for yy in range(H):
+            if yy < 220:
+                a = int(200 * (1 - yy / 220))
+            elif yy > 520:
+                a = int(235 * (yy - 520) / 480)
+            else:
+                a = 0
+            grad.putpixel((0, yy), a)
+        grad = grad.resize((W, H))
+        img.paste(Image.new("RGB", (W, H), (10, 8, 24)), (0, 0), grad)
     d = ImageDraw.Draw(img)
-    # decorative circles
-    d.ellipse([620, -80, 900, 200], fill=accent)
-    d.ellipse([-120, 820, 180, 1120], fill=accent2)
-    d.rectangle([0, 0, W, 12], fill=accent)
-    y = 90
-    d.text((60, y), category.upper(), font=_cover_font(False, 28), fill=accent2)
-    y += 70
-    d.text((60, y), "PDF GUIDE", font=_cover_font(True, 30), fill=accent)
-    y += 90
-    for line in textwrap.wrap(title, width=16):
-        d.text((60, y), line, font=_cover_font(True, 62), fill=fg)
-        y += 78
-        if y > 620:
+    # category pill
+    pill = category.upper()
+    pw = d.textlength(pill, font=_cover_font(True, 26)) + 44
+    d.rounded_rectangle([56, 56, 56 + pw, 104], radius=24, fill=(255, 255, 255))
+    d.text((78, 68), pill, font=_cover_font(True, 26), fill=(20, 14, 40))
+    d.text((60, 130), "PDF GUIDE", font=_cover_font(True, 30), fill=(251, 191, 36))
+    y = 620
+    for line in textwrap.wrap(title, width=15):
+        # shadow then white for readability on any photo
+        d.text((62, y + 3), line, font=_cover_font(True, 68), fill=(0, 0, 0))
+        d.text((60, y), line, font=_cover_font(True, 68), fill=(255, 255, 255))
+        y += 84
+        if y > 820:
             break
-    d.rectangle([60, 700, 740, 706], fill=accent)
-    d.text((60, 740), "Practical steps · Starter plan", font=_cover_font(False, 30), fill=fg)
-    d.text((60, 790), "Checklist · Mistakes to avoid", font=_cover_font(False, 30), fill=fg)
-    d.text((60, 900), f"₹{price:g}  ·  Product King", font=_cover_font(True, 32), fill=accent)
+    d.rectangle([60, 860, 740, 866], fill=(251, 191, 36))
+    d.text((60, 880), "Practical steps · Starter plan · Checklist", font=_cover_font(False, 26), fill=(255, 255, 255))
+    d.text((60, 930), f"₹{price:g}  ·  Product King", font=_cover_font(True, 32), fill=(251, 191, 36))
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=85)
+    img.save(buf, format="JPEG", quality=88)
     buf.seek(0)
     return buf
 
