@@ -592,30 +592,42 @@ def _cover_font(bold, size):
         return ImageFont.load_default()
 
 
-def _cover_image(title, category, price, variant):
+def _cover_image(title, category, price, variant, slug=""):
     from PIL import Image, ImageDraw
-    import textwrap
+    import textwrap, hashlib
     bg, fg, accent, accent2 = _COVER_PALETTES[(variant - 1) % 3]
     W, H = 800, 1000
-    # God-tier style: AI hero photo background + smooth dark gradient + bold
-    # oversized type (2026 trends: bold minimalism, vibrant gradients, one
-    # strong focal image, readable at thumbnail size).
+    # Unique-per-product covers: a per-product hero photo wins over the
+    # category photo, and every cover gets a deterministic per-product
+    # crop offset + tint, so no two products share an identical image.
     hero = None
     try:
-        slug = (category or "").strip().lower().replace(" ", "-")
-        path = os.path.join(os.path.dirname(__file__), "static", "hero-images", slug + ".jpg")
-        if os.path.exists(path):
+        cat_slug = (category or "").strip().lower().replace(" ", "-")
+        hero_dir = os.path.join(os.path.dirname(__file__), "static", "hero-images")
+        path = None
+        if slug and os.path.exists(os.path.join(hero_dir, slug + ".jpg")):
+            path = os.path.join(hero_dir, slug + ".jpg")
+        elif os.path.exists(os.path.join(hero_dir, cat_slug + ".jpg")):
+            path = os.path.join(hero_dir, cat_slug + ".jpg")
+        if path:
             hero = Image.open(path).convert("RGB")
-            # centre-crop to 4:5
+            # per-product crop to 4:5 (hash shifts the window, so the same
+            # base photo still yields a different frame per product)
+            h = int(hashlib.md5((slug or title).encode()).hexdigest()[:8], 16)
             tw, th = hero.size
             target = W / H
             if tw / th > target:
                 nw = int(th * target)
-                hero = hero.crop(((tw - nw) // 2, 0, (tw + nw) // 2, th))
+                x0 = h % (tw - nw + 1) if tw > nw else 0
+                hero = hero.crop((x0, 0, x0 + nw, th))
             else:
                 nh = int(tw / target)
-                hero = hero.crop((0, (th - nh) // 2, tw, (th + nh) // 2))
+                y0 = h % (th - nh + 1) if th > nh else 0
+                hero = hero.crop((0, y0, tw, y0 + nh))
             hero = hero.resize((W, H), Image.LANCZOS)
+            # per-product tint (subtle, keeps the photo recognisable)
+            tints = [(124, 58, 237), (245, 158, 11), (14, 165, 233), (244, 63, 94), (16, 185, 129)]
+            hero = Image.blend(hero, Image.new("RGB", (W, H), tints[h % len(tints)]), 0.10)
     except Exception:
         hero = None
     if hero is None:
@@ -672,7 +684,7 @@ def product_cover(slug, variant):
     p = q("SELECT * FROM products WHERE slug=?", (slug,), one=True)
     if not p or variant not in (1, 2, 3):
         abort(404)
-    resp = send_file(_cover_image(p["title"], p["category"] or "", p["price"], variant),
+    resp = send_file(_cover_image(p["title"], p["category"] or "", p["price"], variant, p["slug"]),
                      mimetype="image/jpeg", download_name=f"{slug}-cover-{variant}.jpg")
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
