@@ -630,49 +630,66 @@ def _cover_image(title, category, price, variant, slug=""):
             hero = Image.blend(hero, Image.new("RGB", (W, H), tints[h % len(tints)]), 0.10)
     except Exception:
         hero = None
-    if hero is None:
-        img = Image.new("RGB", (W, H), bg)
-        d0 = ImageDraw.Draw(img)
-        d0.ellipse([620, -80, 900, 200], fill=accent)
-        d0.ellipse([-120, 820, 180, 1120], fill=accent2)
-        img = img
-    else:
-        img = hero
-        # variant tints: 1 clean, 2 violet glow, 3 warm gold glow
+    # Reference style (user-sent "LOOKSMAXING GUIDE" cover): dark luxury
+    # background, thin gold frame with corner accents, huge gold title
+    # top-left, and the product's own topic photo on the right side.
+    GOLD = (212, 175, 55)
+    img = Image.new("RGB", (W, H), (12, 12, 18))
+    if hero is not None:
+        # right-side portrait panel (photo, not full-bleed)
+        pw_side, ph_side = 360, H
+        side = hero.crop((0, 0, hero.size[0], hero.size[1]))
+        # crop photo to portrait panel ratio
+        tw2, th2 = side.size
+        if tw2 / th2 > pw_side / ph_side:
+            nw = int(th2 * pw_side / ph_side)
+            side = side.crop(((tw2 - nw) // 2, 0, (tw2 + nw) // 2, th2))
+        else:
+            nh = int(tw2 * ph_side / pw_side)
+            side = side.crop((0, (th2 - nh) // 2, tw2, (th2 + nh) // 2))
+        side = side.resize((pw_side, ph_side), Image.LANCZOS)
         if variant == 2:
-            img = Image.blend(img, Image.new("RGB", (W, H), (124, 58, 237)), 0.18)
+            side = Image.blend(side, Image.new("RGB", (pw_side, ph_side), (124, 58, 237)), 0.15)
         elif variant == 3:
-            img = Image.blend(img, Image.new("RGB", (W, H), (245, 158, 11)), 0.15)
-        # smooth gradient overlays: dark at top (for badge) and bottom (for text)
-        grad = Image.new("L", (1, H))
+            side = Image.blend(side, Image.new("RGB", (pw_side, ph_side), (245, 158, 11)), 0.12)
+        img.paste(side, (W - pw_side, 0))
+        # fade the photo's left edge into the dark background
+        fade = Image.new("L", (1, H))
         for yy in range(H):
-            if yy < 220:
-                a = int(200 * (1 - yy / 220))
-            elif yy > 520:
-                a = int(235 * (yy - 520) / 480)
-            else:
-                a = 0
-            grad.putpixel((0, yy), a)
-        grad = grad.resize((W, H))
-        img.paste(Image.new("RGB", (W, H), (10, 8, 24)), (0, 0), grad)
+            fade.putpixel((0, yy), 0)
+        grad = Image.new("L", (pw_side, H))
+        for xx in range(pw_side):
+            a = int(255 * (1 - xx / 180)) if xx < 180 else 0
+            for yy in range(H):
+                grad.putpixel((xx, yy), a)
+        img.paste(Image.new("RGB", (pw_side, ph_side), (12, 12, 18)), (W - pw_side, 0), grad)
     d = ImageDraw.Draw(img)
-    # category pill
-    pill = category.upper()
-    pw = d.textlength(pill, font=_cover_font(True, 26)) + 44
-    d.rounded_rectangle([56, 56, 56 + pw, 104], radius=24, fill=(255, 255, 255))
-    d.text((78, 68), pill, font=_cover_font(True, 26), fill=(20, 14, 40))
-    d.text((60, 130), "PDF GUIDE", font=_cover_font(True, 30), fill=(251, 191, 36))
-    y = 620
-    for line in textwrap.wrap(title, width=15):
-        # shadow then white for readability on any photo
-        d.text((62, y + 3), line, font=_cover_font(True, 68), fill=(0, 0, 0))
-        d.text((60, y), line, font=_cover_font(True, 68), fill=(255, 255, 255))
-        y += 84
-        if y > 820:
-            break
-    d.rectangle([60, 860, 740, 866], fill=(251, 191, 36))
-    d.text((60, 880), "Practical steps · Starter plan · Checklist", font=_cover_font(False, 26), fill=(255, 255, 255))
-    d.text((60, 930), f"₹{price:g}  ·  Product King", font=_cover_font(True, 32), fill=(251, 191, 36))
+    # thin gold frame + corner accents
+    d.rectangle([18, 18, W - 19, H - 19], outline=GOLD, width=3)
+    for (cx, cy, dx, dy) in [(18, 18, 1, 1), (W - 19, 18, -1, 1), (18, H - 19, 1, -1), (W - 19, H - 19, -1, -1)]:
+        for i in range(3):
+            d.line([(cx + dx * i * 14, cy), (cx + dx * i * 14, cy + dy * 46)], fill=GOLD, width=2)
+            d.line([(cx, cy + dy * i * 14), (cx + dx * 46, cy + dy * i * 14)], fill=GOLD, width=2)
+    # huge gold title, top-left, wrapped to the photo edge
+    words = title.upper().split()
+    lines, cur = [], ""
+    for w in words:
+        t = (cur + " " + w).strip()
+        if not cur or d.textlength(t, font=_cover_font(True, 80)) <= 480:
+            cur = t
+        else:
+            lines.append(cur); cur = w
+    if cur:
+        lines.append(cur)
+    y = 110
+    for line in lines[:5]:
+        d.text((52, y), line, font=_cover_font(True, 80), fill=GOLD)
+        y += 92
+    # gold rule under the title
+    d.rectangle([52, y + 10, 330, y + 14], fill=GOLD)
+    d.text((52, y + 34), category.upper(), font=_cover_font(True, 28), fill=(255, 255, 255))
+    d.text((52, 880), f"₹{price:g}  ·  PRODUCT KING", font=_cover_font(True, 30), fill=GOLD)
+    d.text((52, 930), "PDF GUIDE", font=_cover_font(False, 26), fill=(200, 200, 200))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=88)
     buf.seek(0)
