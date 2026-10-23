@@ -548,6 +548,73 @@ def seller_page(seller):
                            count=len(matched))
 
 
+# ---------------- product cover pictures (generated, 3 per product) ----------------
+# No image files are uploaded: /cover/<slug>/<1|2|3> renders a designed
+# cover on the fly with Pillow, so every guide gets 3 pictures without
+# 300 files in the repo or in the deployment. Colours come from the
+# store palette, text is the guide's real title/category/price.
+_COVER_PALETTES = [
+    ("#FFF6E9", "#241A33", "#7C3AED", "#FF6B35"),  # cream / plum / violet / coral
+    ("#241A33", "#FFF6E9", "#FFC53D", "#FF6B35"),  # plum / cream / gold / coral
+    ("#7C3AED", "#FFF6E9", "#FFC53D", "#241A33"),  # violet / cream / gold / plum
+]
+
+
+def _cover_font(bold, size):
+    try:
+        from PIL import ImageFont
+        for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else
+                     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",):
+            if os.path.exists(path):
+                return ImageFont.truetype(path, size)
+        return ImageFont.load_default(size=size)
+    except Exception:
+        from PIL import ImageFont
+        return ImageFont.load_default()
+
+
+def _cover_image(title, category, price, variant):
+    from PIL import Image, ImageDraw
+    import textwrap
+    bg, fg, accent, accent2 = _COVER_PALETTES[(variant - 1) % 3]
+    W, H = 800, 1000
+    img = Image.new("RGB", (W, H), bg)
+    d = ImageDraw.Draw(img)
+    # decorative circles
+    d.ellipse([620, -80, 900, 200], fill=accent)
+    d.ellipse([-120, 820, 180, 1120], fill=accent2)
+    d.rectangle([0, 0, W, 12], fill=accent)
+    y = 90
+    d.text((60, y), category.upper(), font=_cover_font(False, 28), fill=accent2)
+    y += 70
+    d.text((60, y), "PDF GUIDE", font=_cover_font(True, 30), fill=accent)
+    y += 90
+    for line in textwrap.wrap(title, width=16):
+        d.text((60, y), line, font=_cover_font(True, 62), fill=fg)
+        y += 78
+        if y > 620:
+            break
+    d.rectangle([60, 700, 740, 706], fill=accent)
+    d.text((60, 740), "Practical steps · Starter plan", font=_cover_font(False, 30), fill=fg)
+    d.text((60, 790), "Checklist · Mistakes to avoid", font=_cover_font(False, 30), fill=fg)
+    d.text((60, 900), f"₹{price:g}  ·  Digital Store", font=_cover_font(True, 32), fill=accent)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    buf.seek(0)
+    return buf
+
+
+@app.route("/cover/<slug>/<int:variant>")
+def product_cover(slug, variant):
+    p = q("SELECT * FROM products WHERE slug=?", (slug,), one=True)
+    if not p or variant not in (1, 2, 3):
+        abort(404)
+    resp = send_file(_cover_image(p["title"], p["category"] or "", p["price"], variant),
+                     mimetype="image/jpeg", download_name=f"{slug}-cover-{variant}.jpg")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
 @app.route("/product/<slug>")
 def product_page(slug):
     p = q("SELECT * FROM products WHERE slug=?", (slug,), one=True)
