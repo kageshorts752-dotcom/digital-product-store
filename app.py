@@ -329,6 +329,7 @@ def init_db():
         ("seller_name", "ALTER TABLE products ADD COLUMN seller_name TEXT DEFAULT 'Shirish Digital Store'"),
         ("badge", "ALTER TABLE products ADD COLUMN badge TEXT DEFAULT ''"),
         ("item_count", "ALTER TABLE products ADD COLUMN item_count TEXT DEFAULT ''"),
+        ("buyer_gstin", "ALTER TABLE orders ADD COLUMN buyer_gstin TEXT DEFAULT ''"),
     ):
         try:
             db().execute(ddl)
@@ -455,20 +456,21 @@ def cart_total(items, coupon=None, country="IN"):
     return subtotal, discount, tax, round(taxable + tax, 2)
 
 
-def create_order(email, items, totals, gateway, country, coupon_code, ref):
+def create_order(email, items, totals, gateway, country, coupon_code, ref, gstin=""):
     subtotal, discount, tax, total = totals
     oid = str(uuid.uuid4())
     # UPI and YouPI stay pending: no auto-webhook unlocks them here.
     status = "pending" if gateway in ("upi", "youpi") else "paid"
     exec_sql("""INSERT INTO orders (order_id, user_id, buyer_email, status,
         subtotal_amount, tax_amount, discount_amount, total_amount, currency,
-        payment_gateway, gateway_order_id, buyer_ip, created_at, paid_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        payment_gateway, gateway_order_id, buyer_ip, created_at, paid_at, buyer_gstin)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
              (oid, session.get("user_id"), email, status, subtotal, tax,
               discount, total, "INR", gateway, f"{gateway.upper()}-{oid[:8]}",
               request.remote_addr,
               datetime.now(timezone.utc).isoformat(),
-              datetime.now(timezone.utc).isoformat() if status == "paid" else None))
+              datetime.now(timezone.utc).isoformat() if status == "paid" else None,
+              gstin))
     for it in items:
         if it["kind"] == "bundle":
             prods = q("SELECT product_id FROM bundle_items WHERE bundle_id=?",
@@ -751,6 +753,7 @@ def checkout():
     coupon = q("SELECT * FROM coupons WHERE code=?", (session.get("coupon"),), one=True) if session.get("coupon") else None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
+        gstin = request.form.get("gstin", "").strip().upper()
         country = request.form.get("country", "IN")
         gateway = request.form.get("gateway", "stripe")
         if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
@@ -762,13 +765,13 @@ def checkout():
         # send the buyer straight to their library, where downloads unlock.
         if totals[3] == 0:
             oid = create_order(email, items, totals, "free", country,
-                               session.get("coupon"), session.get("ref"))
+                               session.get("coupon"), session.get("ref"), gstin)
             session.pop("cart", None)
             session.pop("coupon", None)
             flash("Added to your library — no payment needed (100% off).")
             return redirect(url_for("library", email=email))
         oid = create_order(email, items, totals, gateway, country,
-                           session.get("coupon"), session.get("ref"))
+                           session.get("coupon"), session.get("ref"), gstin)
         session.pop("cart", None)
         session.pop("coupon", None)
         return redirect(url_for("order_success", order_id=oid))
@@ -1043,13 +1046,41 @@ def admin_dashboard():
         db_mode = "Vercel temporary (/tmp — see sync note below)"
     else:
         db_mode = "Local file"
+    cust = q("SELECT COUNT(DISTINCT buyer_email) c, COALESCE(SUM(total_amount),0) t FROM orders WHERE status='paid'", one=True)
     return render_template("admin.html",
                            orders=q("SELECT * FROM orders ORDER BY created_at DESC LIMIT 50"),
                            products=q("SELECT * FROM products ORDER BY title"),
                            coupons=q("SELECT * FROM coupons"),
                            affiliates=q("SELECT * FROM affiliates"),
                            notes=q("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50"),
-                           db_mode=db_mode)
+                           db_mode=db_mode,
+                           customer_count=cust["c"] if cust else 0,
+                           total_earned=cust["t"] if cust else 0)
+
+
+@app.route("/admin/sales.csv")
+def admin_sales_csv():
+    r = admin_required()
+    if r:
+        return r
+    import csv
+    rows = q("""SELECT o.order_id, o.created_at, o.buyer_email, o.buyer_gstin,
+        p.title, oi.unit_price, o.tax_amount, o.total_amount, o.payment_gateway, o.status
+        FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN products p ON p.product_id = oi.product_id
+        ORDER BY o.created_at""")
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["order_id", "date", "buyer_email", "buyer_gstin", "product_name",
+                "unit_price", "gst_amount", "order_total", "payment_gateway", "status"])
+    for row in rows:
+        w.writerow([row["order_id"], row["created_at"], row["buyer_email"],
+                    row["buyer_gstin"] or "", row["title"], row["unit_price"],
+                    row["tax_amount"], row["total_amount"], row["payment_gateway"],
+                    row["status"]])
+    resp = app.response_class(buf.getvalue(), mimetype="text/csv")
+    resp.headers["Content-Disposition"] = "attachment; filename=sales.csv"
+    return resp
 
 
 @app.route("/admin/product", methods=["POST"])
