@@ -336,6 +336,15 @@ def init_db():
             db().commit()
         except Exception:
             pass  # column already exists
+    for ddl in (
+        "CREATE TABLE IF NOT EXISTS reviews (review_id TEXT PRIMARY KEY, product_id TEXT, buyer_name TEXT, rating INTEGER, title TEXT, body TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS contacts (contact_id TEXT PRIMARY KEY, name TEXT, email TEXT, subject TEXT, message TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS email_queue (email_id TEXT PRIMARY KEY, order_id TEXT, to_email TEXT, subject TEXT, body TEXT, status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+    ):
+        try:
+            db().execute(ddl); db().commit()
+        except Exception:
+            pass
     # Backfill seeded products (existing DBs): force new local pictures and
     # the new 39-59 price range, so old DBs match the fresh-seed catalogue.
     _SEEDED_BY_SLUG = {t[0]: t for t in _seed_products()}
@@ -369,6 +378,46 @@ def init_db():
                 VALUES (?,?,?,?,?,?,1)""",
                      (str(uuid.uuid4()), pid, "1.0.0", fname, fname,
                       os.path.getsize(fpath)))
+
+
+def avg_rating(product_id):
+    r = q("SELECT COALESCE(AVG(rating),0) a, COUNT(*) c FROM reviews WHERE product_id=?", (product_id,), one=True)
+    return (round(r["a"], 1) if r else 0, r["c"] if r else 0)
+
+
+def queue_order_email(order_id):
+    # Per-sale thank-you + PDF link + receipt email, queued at payment.
+    # The store itself cannot send from Muse Gmail (that needs a live
+    # approval per send); it queues the exact email here for the admin to
+    # send from kageshorts752@gmail.com, and sends automatically only if
+    # SMTP is configured in env (STORE_SMTP_HOST/USER/PASS).
+    try:
+        o = q("SELECT * FROM orders WHERE order_id=?", (order_id,), one=True)
+        if not o or o["status"] != "paid":
+            return
+        if q("SELECT * FROM email_queue WHERE order_id=?", (order_id,), one=True):
+            return
+        items = q("SELECT p.title FROM order_items oi JOIN products p ON p.product_id=oi.product_id WHERE oi.order_id=?", (order_id,))
+        names = ", ".join(i["title"] for i in items)
+        body = (f"Thank you for your Product King order!\n\nProducts: {names}\n"
+                f"Total: \u20b9{o['total_amount']}\nOrder: {order_id}\n\n"
+                f"Download your PDFs from your library: https://digital-product-store-shirishgores-projects.vercel.app/library?email={o['buyer_email']}\n"
+                f"Invoice: https://digital-product-store-shirishgores-projects.vercel.app/order/{order_id}/invoice\n\n"
+                f"No returns \u2014 instant digital PDF download. Questions? Reply to this email.")
+        exec_sql("INSERT INTO email_queue (email_id, order_id, to_email, subject, body) VALUES (?,?,?,?,?)",
+                 (str(uuid.uuid4()), order_id, o["buyer_email"], f"Thank you \u2014 your Product King order {order_id}", body))
+        # Best-effort SMTP send when configured; otherwise it stays queued.
+        host = os.environ.get("STORE_SMTP_HOST")
+        if host:
+            import smtplib
+            from email.message import EmailMessage
+            msg = EmailMessage(); msg["From"] = os.environ.get("STORE_SMTP_FROM", "kageshorts752@gmail.com")
+            msg["To"] = o["buyer_email"]; msg["Subject"] = f"Thank you \u2014 your Product King order {order_id}"; msg.set_content(body)
+            with smtplib.SMTP_SSL(host, int(os.environ.get("STORE_SMTP_PORT", "465"))) as sv:
+                sv.login(os.environ["STORE_SMTP_USER"], os.environ["STORE_SMTP_PASS"]); sv.send_message(msg)
+            exec_sql("UPDATE email_queue SET status='sent' WHERE order_id=?", (order_id,))
+    except Exception:
+        pass
 
 
 # ---------------- signed download tokens ----------------
@@ -519,6 +568,7 @@ def index():
     categories = [r["category"] for r in
                   q("SELECT DISTINCT category FROM products WHERE is_published=1 ORDER BY category")
                   if r["category"]]
+    sort = (request.args.get("sort") or "").strip()
     if qterm or cat:
         sql = "SELECT * FROM products WHERE is_published=1"
         args = []
@@ -529,13 +579,18 @@ def index():
         if cat:
             sql += " AND category=?"
             args.append(cat)
-        sql += " ORDER BY title"
+        if sort == "price_asc":
+            sql += " ORDER BY price ASC"
+        elif sort == "price_desc":
+            sql += " ORDER BY price DESC"
+        else:
+            sql += " ORDER BY title"
         products = q(sql, args)
         return render_template("index.html", products=products, bundles=bundles,
                                store=STORE_NAME, q=qterm, category=cat,
-                               categories=categories, searching=True,
+                               categories=categories, searching=True, sort=sort,
                                top_picks=[], new_arrivals=[], editors=[],
-                               todays=[], spotlights={})
+                               todays=[], spotlights={}, bestsellers=[], recent=[])
     products = q("SELECT * FROM products WHERE is_published=1 ORDER BY title")
     top_picks = q("SELECT * FROM products WHERE is_published=1 AND badge='top_pick' ORDER BY title")
     new_arrivals = q("SELECT * FROM products WHERE is_published=1 AND badge='latest' ORDER BY title")
@@ -546,11 +601,20 @@ def index():
         spotlights[c] = q("SELECT * FROM products WHERE is_published=1 AND category=? ORDER BY title", (c,))
     featured = q("SELECT * FROM products WHERE is_published=1 AND slug='36-questions-to-ask-a-woman'",
                  one=True)
+    bestsellers = q("""SELECT p.* FROM products p JOIN order_items oi ON oi.product_id=p.product_id
+        JOIN orders o ON o.order_id=oi.order_id AND o.status='paid'
+        WHERE p.is_published=1 GROUP BY p.product_id ORDER BY COUNT(*) DESC LIMIT 8""")
+    recent = []
+    for slug in session.get("recent", [])[:8]:
+        rp = q("SELECT * FROM products WHERE slug=? AND is_published=1", (slug,), one=True)
+        if rp:
+            recent.append(rp)
     return render_template("index.html", products=products, bundles=bundles,
                            store=STORE_NAME, q="", category="", categories=categories,
-                           searching=False, top_picks=top_picks,
+                           searching=False, top_picks=top_picks, sort="",
                            new_arrivals=new_arrivals, editors=editors,
-                           todays=todays, spotlights=spotlights, featured=featured)
+                           todays=todays, spotlights=spotlights, featured=featured,
+                           bestsellers=bestsellers, recent=recent)
 
 
 @app.route("/store/<seller>")
@@ -731,10 +795,17 @@ def product_page(slug):
     p = q("SELECT * FROM products WHERE slug=?", (slug,), one=True)
     if not p:
         abort(404)
+    rec = session.get("recent", [])
+    if slug in rec:
+        rec.remove(slug)
+    session["recent"] = [slug] + rec[:7]
+    stars, nrev = avg_rating(p["product_id"])
+    reviews = q("SELECT * FROM reviews WHERE product_id=? ORDER BY created_at DESC LIMIT 20", (p["product_id"],))
     upsells = q("SELECT * FROM products WHERE is_published=1 AND product_id != ? LIMIT 3",
                 (p["product_id"],))
     return render_template("product.html", p=p, upsells=upsells,
-                           licenses=LICENSE_MULT, labels=LICENSE_LABEL)
+                           licenses=LICENSE_MULT, labels=LICENSE_LABEL,
+                           stars=stars, nrev=nrev, reviews=reviews)
 
 
 @app.route("/preview/<slug>")
@@ -816,6 +887,7 @@ def checkout():
                                session.get("coupon"), session.get("ref"), gstin)
             session.pop("cart", None)
             session.pop("coupon", None)
+            queue_order_email(oid)
             flash("Added to your library — no payment needed (100% off).")
             return redirect(url_for("library", email=email))
         oid = create_order(email, items, totals, gateway, country,
@@ -839,6 +911,8 @@ def order_success(order_id):
     o = q("SELECT * FROM orders WHERE order_id=?", (order_id,), one=True)
     if not o:
         abort(404)
+    if o["status"] == "paid":
+        queue_order_email(order_id)
     items = q("""SELECT oi.*, p.title, p.slug FROM order_items oi
                  JOIN products p ON p.product_id = oi.product_id
                  WHERE oi.order_id=?""", (order_id,))
@@ -1101,6 +1175,8 @@ def admin_dashboard():
                            coupons=q("SELECT * FROM coupons"),
                            affiliates=q("SELECT * FROM affiliates"),
                            notes=q("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50"),
+                           contacts=q("SELECT * FROM contacts ORDER BY created_at DESC LIMIT 20"),
+                           email_queue=q("SELECT * FROM email_queue ORDER BY created_at DESC LIMIT 20"),
                            db_mode=db_mode,
                            customer_count=cust["c"] if cust else 0,
                            total_earned=cust["t"] if cust else 0)
@@ -1293,6 +1369,7 @@ def admin_confirm(order_id):
         return r
     exec_sql("UPDATE orders SET status='paid', paid_at=? WHERE order_id=?",
              (datetime.now(timezone.utc).isoformat(), order_id))
+    queue_order_email(order_id)
     flash("Payment confirmed — files unlocked.")
     return redirect(url_for("admin_dashboard"))
 
@@ -1394,6 +1471,100 @@ def affiliate_ref(code):
 
 with app.app_context():
     init_db()
+
+
+
+@app.route("/product/<slug>/review", methods=["POST"])
+def product_review(slug):
+    p = q("SELECT * FROM products WHERE slug=?", (slug,), one=True)
+    if not p:
+        abort(404)
+    try:
+        rating = int(request.form.get("rating", "5"))
+    except Exception:
+        rating = 5
+    rating = max(1, min(5, rating))
+    exec_sql("INSERT INTO reviews (review_id, product_id, buyer_name, rating, title, body) VALUES (?,?,?,?,?,?)",
+             (str(uuid.uuid4()), p["product_id"], (request.form.get("name") or "Buyer").strip()[:60],
+              rating, (request.form.get("title") or "").strip()[:120], (request.form.get("body") or "").strip()[:1000]))
+    flash("Thanks for your review!")
+    return redirect(url_for("product_page", slug=slug))
+
+
+@app.route("/wishlist")
+def wishlist_page():
+    ids = session.get("wishlist", [])
+    items = []
+    for slug in ids:
+        wp = q("SELECT * FROM products WHERE slug=? AND is_published=1", (slug,), one=True)
+        if wp:
+            items.append(wp)
+    return render_template("wishlist.html", items=items)
+
+
+@app.route("/wishlist/add/<slug>", methods=["POST"])
+def wishlist_add(slug):
+    w = session.get("wishlist", [])
+    if slug not in w:
+        w.append(slug)
+    session["wishlist"] = w
+    return redirect(url_for("wishlist_page"))
+
+
+@app.route("/wishlist/remove/<slug>", methods=["POST"])
+def wishlist_remove(slug):
+    session["wishlist"] = [x for x in session.get("wishlist", []) if x != slug]
+    return redirect(url_for("wishlist_page"))
+
+
+PAGES = {
+    "faq": ("FAQ", "How do I get my PDF? After payment is confirmed, your library unlocks and you download instantly from /library using your email. Are the guides original? Yes, every guide is written for Product King. Is there a return? No returns \u2014 instant digital PDF, so please check the preview before buying. Do I need an account? No, guest checkout works; your library is found by email."),
+    "terms": ("Terms of Use", "You buy a personal license to download and read the PDF. You may not resell, redistribute, or post the files publicly. Content is general information only, not medical, legal, or financial advice."),
+    "privacy": ("Privacy Policy", "We store only what checkout needs: your email, order totals, and an optional GSTIN. Downloads are logged (IP and device) to prevent abuse. We do not sell your details."),
+    "refund": ("Refund Policy", "No returns and no refunds on instant digital PDFs, as stated on every product and checkout page. If a download genuinely fails, contact us and we will fix the link."),
+}
+
+
+@app.route("/page/<name>")
+def info_page(name):
+    if name not in PAGES:
+        abort(404)
+    title, body = PAGES[name]
+    return render_template("info.html", title=title, body=body)
+
+
+@app.route("/contact", methods=["GET", "POST"])
+def contact_page():
+    if request.method == "POST":
+        exec_sql("INSERT INTO contacts (contact_id, name, email, subject, message) VALUES (?,?,?,?,?)",
+                 (str(uuid.uuid4()), (request.form.get("name") or "").strip()[:80],
+                  (request.form.get("email") or "").strip()[:120],
+                  (request.form.get("subject") or "").strip()[:120],
+                  (request.form.get("message") or "").strip()[:2000]))
+        flash("Message sent. We will reply to your email.")
+        return redirect(url_for("contact_page"))
+    return render_template("contact.html")
+
+
+@app.route("/sitemap.xml")
+def sitemap():
+    urls = ["https://digital-product-store-shirishgores-projects.vercel.app/",
+            "https://digital-product-store-shirishgores-projects.vercel.app/page/faq",
+            "https://digital-product-store-shirishgores-projects.vercel.app/contact"]
+    for pr in q("SELECT slug FROM products WHERE is_published=1"):
+        urls.append(f"https://digital-product-store-shirishgores-projects.vercel.app/product/{pr['slug']}")
+    body = "\n".join(f"<url><loc>{u}</loc></url>" for u in urls)
+    return app.response_class(f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n{body}\n</urlset>",
+                              mimetype="application/xml")
+
+
+@app.route("/admin/review/<review_id>/delete", methods=["POST"])
+def admin_review_delete(review_id):
+    r = admin_required()
+    if r:
+        return r
+    exec_sql("DELETE FROM reviews WHERE review_id=?", (review_id,))
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.before_request
