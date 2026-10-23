@@ -3,7 +3,7 @@
 # checkout so they can pay by UPI. It is intentionally public-facing at
 # checkout (like a shop's UPI ID on a QR board). It is NOT a password or
 # secret key, and it must never be used as a login credential.
-STORE_NAME = "Shirish Digital Store"
+STORE_NAME = "Product King"
 UPI_ID = "7774086386@ybl"
 UPI_PAYEE_NAME = "Shirish Digital Store"
 SECRET_KEY = "change-me-before-production"

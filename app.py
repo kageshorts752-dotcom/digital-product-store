@@ -42,7 +42,7 @@ try:
 except Exception:  # config.py missing (e.g. partial copy)
     DOWNLOAD_LINK_MINUTES, DOWNLOAD_MAX_DEFAULT = 15, 5
     GST_RATE_IN, SECRET_KEY = 0.18, "change-me-before-production"
-    STORE_NAME, UPI_ID, UPI_PAYEE_NAME = "Digital Store", "", "Digital Store"
+    STORE_NAME, UPI_ID, UPI_PAYEE_NAME = "Product King", "", "Digital Store"
     YOUPI_WEBHOOK_SECRET = os.environ.get("YOUPI_WEBHOOK_SECRET", "")
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -597,7 +597,7 @@ def _cover_image(title, category, price, variant):
     d.rectangle([60, 700, 740, 706], fill=accent)
     d.text((60, 740), "Practical steps · Starter plan", font=_cover_font(False, 30), fill=fg)
     d.text((60, 790), "Checklist · Mistakes to avoid", font=_cover_font(False, 30), fill=fg)
-    d.text((60, 900), f"₹{price:g}  ·  Digital Store", font=_cover_font(True, 32), fill=accent)
+    d.text((60, 900), f"₹{price:g}  ·  Product King", font=_cover_font(True, 32), fill=accent)
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     buf.seek(0)
