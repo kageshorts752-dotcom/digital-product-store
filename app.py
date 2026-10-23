@@ -256,6 +256,21 @@ def _seed_products():
                     "and a checklist of common mistakes to avoid.",
                     guides.guide_filename(slug), False, "",
                     guides.SELLER, badges[i % 4], "PDF guide"))
+    # Featured upload (2026-10-23): Shirish's own upload, placed on top.
+    # Badge top_pick + a title starting with a digit sorts it first in the
+    # Top Picks section and in All products; the homepage also renders a
+    # featured banner for it (see index route / index.html).
+    out.append(("36-questions-to-ask-a-woman", "36 Questions To Ask A Woman",
+                "Attractivemaxing",
+                "36 respectful conversation questions that turn small talk into "
+                "real connection — fun starters, getting to know her, values and "
+                "trust, dating and compliments, dreams and growth, and questions "
+                "about the two of you. With a simple tip: ask 3-4, listen, and let "
+                "the conversation wander. Inspired by LOMKYY's YouTube Short.",
+                49, "INR", "pdf", "~13 KB", "Any PDF reader", "PDF",
+                "36 questions in 6 sections, with a gentle tip on how to use them.",
+                "36-questions-to-ask-a-woman.pdf", False, "",
+                guides.SELLER, "top_pick", "PDF guide"))
     return out
 
 def seed():
@@ -527,11 +542,13 @@ def index():
     spotlights = {}
     for c in categories:
         spotlights[c] = q("SELECT * FROM products WHERE is_published=1 AND category=? ORDER BY title", (c,))
+    featured = q("SELECT * FROM products WHERE is_published=1 AND slug='36-questions-to-ask-a-woman'",
+                 one=True)
     return render_template("index.html", products=products, bundles=bundles,
                            store=STORE_NAME, q="", category="", categories=categories,
                            searching=False, top_picks=top_picks,
                            new_arrivals=new_arrivals, editors=editors,
-                           todays=todays, spotlights=spotlights)
+                           todays=todays, spotlights=spotlights, featured=featured)
 
 
 @app.route("/store/<seller>")
