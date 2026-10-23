@@ -236,8 +236,15 @@ LICENSE_LABEL = {"Personal": "Personal — 1 project",
                  "Extended": "Extended — unlimited / resale in a product"}
 
 
+def _rand_price(slug):
+    # Deterministic "random" price per product, Rs 30-99: same every
+    # deploy (a true random each time would flip prices on every restart).
+    return 30 + (int(hashlib.md5(slug.encode()).hexdigest()[:8], 16) % 70)
+
+
 def _seed_products():
-    """The catalogue: ONLY the 100 new PDF guides, all at Rs 49.
+    """The catalogue: ONLY the 100 new PDF guides, priced Rs 30-99 each
+    (a fixed random-looking price per product, from its slug).
 
     Categories (20 each): Bodybuilding, Mind Mastery, Healthmax,
     Lookmaxing, Attractivemaxing. Seller is StudyNest Press for all.
@@ -250,7 +257,7 @@ def _seed_products():
     badges = ["top_pick", "latest", "staff_pick", "todays_choice"]
     out = []
     for i, (slug, title, cat, _focus, desc, _practices) in enumerate(guides.TOPICS):
-        out.append((slug, title, cat, desc, 49, "INR", "pdf", "~25 KB",
+        out.append((slug, title, cat, desc, _rand_price(slug), "INR", "pdf", "~25 KB",
                     "Any PDF reader", "PDF",
                     "Practical guide with chapters, a 7-day starter routine "
                     "and a checklist of common mistakes to avoid.",
@@ -267,7 +274,7 @@ def _seed_products():
                 "trust, dating and compliments, dreams and growth, and questions "
                 "about the two of you. With a simple tip: ask 3-4, listen, and let "
                 "the conversation wander. Inspired by LOMKYY's YouTube Short.",
-                49, "INR", "pdf", "~13 KB", "Any PDF reader", "PDF",
+                _rand_price("36-questions-to-ask-a-woman"), "INR", "pdf", "~13 KB", "Any PDF reader", "PDF",
                 "36 questions in 6 sections, with a gentle tip on how to use them.",
                 "36-questions-to-ask-a-woman.pdf", False, "",
                 guides.SELLER, "top_pick", "PDF guide"))
