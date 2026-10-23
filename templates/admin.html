@@ -33,7 +33,7 @@
 <button>Save picture</button></form></div>{% endfor %}</div>
 <h2>Orders</h2>{% for o in orders %}<div class="card">{{o.order_id[:8]}} — {{o.buyer_email}} — {{o.status}} — ₹{{o.total_amount}} — {{o.payment_gateway}}
 <form method="post" action="/admin/order/{{o.order_id}}/confirm" style="display:inline"><button>Confirm payment (UPI)</button></form>
-<form method="post" action="/admin/order/{{o.order_id}}/refund" style="display:inline"><button>Refund + revoke</button></form></div>{% endfor %}
+</div>{% endfor %}
 <h2>Add product</h2><form method="post" action="/admin/product" enctype="multipart/form-data">
 <input name="slug" placeholder="slug" required> <input name="title" placeholder="Title" required> <input name="price" placeholder="Price" type="number" step="0.01">
 <input name="category" placeholder="Category"> <input name="file_format" placeholder="Format e.g. zip"> <input name="file_size" placeholder="Size">
