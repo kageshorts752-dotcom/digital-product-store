@@ -64,3 +64,5 @@ form.inline{display:inline}
 .badge.staff{background:#FFF3D6;border-color:var(--gold);color:#7A5200}
 .badge.new{background:#E2F5EC;border-color:var(--green);color:#146B44}
 .badge.choice{background:#F3EFFF;border-color:var(--violet2);color:var(--violet)}
+
+.no-returns{background:#FDE8E8;border:2px solid #E5484D;color:#7A1015;padding:14px 18px;border-radius:12px;font-weight:800;margin:16px 0}
