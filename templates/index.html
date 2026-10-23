@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block content %}
 {% macro card(p) %}
 <div class="card">
-{% if p.image_url %}<img class="card-img" src="{{p.image_url}}" alt="{{p.title}}" loading="lazy">{% else %}<div class="card-img placeholder">No picture yet</div>{% endif %}
+{% if p.image_url %}<img class="card-img" src="{{p.image_url}}" alt="{{p.title}}" loading="lazy">{% else %}<img class="card-img" src="/cover/{{p.slug}}/1" alt="{{p.title}}" loading="lazy">{% endif %}
 {% if p.badge == 'staff_pick' %}<span class="badge staff">⭐ Staff Pick</span>{% endif %}
 {% if p.badge == 'latest' %}<span class="badge new">New</span>{% endif %}
 {% if p.badge == 'todays_choice' %}<span class="badge choice">Today's Choice</span>{% endif %}
