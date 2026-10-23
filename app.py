@@ -915,12 +915,19 @@ def admin_dashboard():
     r = admin_required()
     if r:
         return r
+    if os.environ.get("TURSO_DATABASE_URL"):
+        db_mode = "Turso (persistent — admin and storefront share one database)"
+    elif os.environ.get("VERCEL"):
+        db_mode = "Vercel temporary (/tmp — see sync note below)"
+    else:
+        db_mode = "Local file"
     return render_template("admin.html",
                            orders=q("SELECT * FROM orders ORDER BY created_at DESC LIMIT 50"),
                            products=q("SELECT * FROM products ORDER BY title"),
                            coupons=q("SELECT * FROM coupons"),
                            affiliates=q("SELECT * FROM affiliates"),
-                           notes=q("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50"))
+                           notes=q("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50"),
+                           db_mode=db_mode)
 
 
 @app.route("/admin/product", methods=["POST"])
