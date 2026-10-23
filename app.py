@@ -304,11 +304,7 @@ def seed():
     exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
              ("WELCOME10", 10, None, 100, 0, "2099-01-01", 1))
     exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
-             ("FLAT100", None, 100, 50, 0, "2099-01-01", 1))
-    exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
              ("FLASH25", 25, None, 20, 0, "2099-01-01", 1))
-    exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
-             ("FREE100", 100, None, 100, 0, "2099-01-01", 1))
     # affiliate
     exec_sql("INSERT INTO affiliates VALUES (?,?,?,?)",
              ("AFF1", "creator1", 0.10, 1))
@@ -1385,6 +1381,16 @@ def admin_confirm(order_id):
 
 
 
+@app.route("/admin/coupon/<code>/delete", methods=["POST"])
+def admin_coupon_delete(code):
+    r = admin_required()
+    if r:
+        return r
+    exec_sql("DELETE FROM coupons WHERE code=?", (code,))
+    flash(f"Coupon {code} deleted.")
+    return redirect(url_for("admin_dashboard"))
+
+
 @app.route("/admin/delete-all", methods=["POST"])
 def admin_delete_all():
     """Delete ALL products, orders and coupons (admin only, irreversible).
@@ -1450,9 +1456,7 @@ def admin_restore_catalogue():
         added += 1
     # Missing coupons / affiliate, without duplicating existing rows.
     for code, pct, amt, limit in (("WELCOME10", 10, None, 100),
-                                  ("FLAT100", None, 100, 50),
-                                  ("FLASH25", 25, None, 20),
-                                  ("FREE100", 100, None, 100)):
+                                  ("FLASH25", 25, None, 20)):
         if not q("SELECT code FROM coupons WHERE code=?", (code,), one=True):
             exec_sql("INSERT INTO coupons VALUES (?,?,?,?,?,?,?)",
                      (code, pct, amt, limit, 0, "2099-01-01", 1))
@@ -1563,6 +1567,10 @@ def ensure_catalogue():
     # exists, an empty catalogue means Delete All was used, and it must
     # stay empty until the admin clicks Restore. Swallow errors so a
     # seeding hiccup never turns a page load into a 500.
+    try:
+        exec_sql("DELETE FROM coupons WHERE code IN ('FREE100','FLAT100')")
+    except Exception:
+        pass
     # New tables (reviews, contacts, email queue) must exist on EVERY
     # instance, not only on a fresh seed: an instance whose DB predates
     # them would otherwise 500 on product, contact and admin pages.
