@@ -1563,6 +1563,22 @@ def ensure_catalogue():
     # exists, an empty catalogue means Delete All was used, and it must
     # stay empty until the admin clicks Restore. Swallow errors so a
     # seeding hiccup never turns a page load into a 500.
+    # New tables (reviews, contacts, email queue) must exist on EVERY
+    # instance, not only on a fresh seed: an instance whose DB predates
+    # them would otherwise 500 on product, contact and admin pages.
+    try:
+        for ddl in (
+            "CREATE TABLE IF NOT EXISTS reviews (review_id TEXT PRIMARY KEY, product_id TEXT, buyer_name TEXT, rating INTEGER, title TEXT, body TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS contacts (contact_id TEXT PRIMARY KEY, name TEXT, email TEXT, subject TEXT, message TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS email_queue (email_id TEXT PRIMARY KEY, order_id TEXT, to_email TEXT, subject TEXT, body TEXT, status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+        ):
+            db().execute(ddl)
+        db().commit()
+    except Exception:
+        try:
+            db().rollback()
+        except Exception:
+            pass
     try:
         row = q("SELECT COUNT(*) c FROM products", one=True)
         if row and row["c"]:
