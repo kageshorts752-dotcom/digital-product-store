@@ -1086,6 +1086,34 @@ def admin_refund(order_id):
     return redirect(url_for("admin_dashboard"))
 
 
+@app.route("/admin/delete-all", methods=["POST"])
+def admin_delete_all():
+    """Delete ALL products, orders and coupons (admin only, irreversible).
+
+    Child rows are deleted first so no orphaned rows remain. Users
+    (including the admin account), affiliates themselves, and
+    notifications are deliberately left untouched.
+    """
+    r = admin_required()
+    if r:
+        return r
+    # Order-tied rows first.
+    exec_sql("DELETE FROM download_logs")
+    exec_sql("DELETE FROM license_keys")
+    exec_sql("DELETE FROM affiliate_commissions")
+    exec_sql("DELETE FROM youpi_webhook_deliveries")
+    exec_sql("DELETE FROM order_items")
+    exec_sql("DELETE FROM orders")
+    # Bundles are made of products, so they must go with the products.
+    exec_sql("DELETE FROM bundle_items")
+    exec_sql("DELETE FROM bundles")
+    exec_sql("DELETE FROM product_files")
+    exec_sql("DELETE FROM products")
+    exec_sql("DELETE FROM coupons")
+    flash("Deleted all products, orders and coupons.")
+    return redirect(url_for("admin_dashboard"))
+
+
 @app.route("/ref/<code>")
 def affiliate_ref(code):
     session["ref"] = code
